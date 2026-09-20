@@ -1,0 +1,10 @@
+[project]
+name = "deno-worker"
+version = "0.1.0"
+description = "Deno background worker (taskiq): validation runs, content plans, maintenance"
+requires-python = ">=3.12"
+dependencies = ["deno-core", "deno-graphs", "prometheus-client>=0.21", "sentry-sdk>=2.20"]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
