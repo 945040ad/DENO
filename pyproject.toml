@@ -1,0 +1,84 @@
+[project]
+name = "deno-workspace"
+version = "0.1.0"
+description = "Deno — evidence-grounded idea validation and human-voice distribution (monorepo root)"
+requires-python = ">=3.12"
+dependencies = ["deno-api", "deno-core", "deno-gates", "deno-graphs", "deno-llm", "deno-rag", "deno-sources", "deno-worker"]
+
+[tool.uv]
+package = false
+default-groups = ["dev", "spikes"]
+
+[tool.uv.workspace]
+members = ["packages/*", "apps/*"]
+
+[tool.uv.sources]
+deno-api = { workspace = true }
+deno-core = { workspace = true }
+deno-gates = { workspace = true }
+deno-graphs = { workspace = true }
+deno-llm = { workspace = true }
+deno-rag = { workspace = true }
+deno-sources = { workspace = true }
+deno-worker = { workspace = true }
+
+[dependency-groups]
+dev = [
+  "pytest>=9.1,<10",
+  "pytest-asyncio>=1.4,<2",
+  "pytest-cov>=7.1",
+  "respx>=0.23",
+  "ruff>=0.16,<0.17",
+  "mypy>=2.3,<3",
+  "schemathesis>=4.28,<5",
+  "types-defusedxml>=0.7",
+  "types-pyyaml>=6.0",
+]
+# Phase 0 spike scripts (spikes/)
+spikes = [
+  "langchain-nvidia-ai-endpoints>=1.4.3,<2",
+  "langchain-openai>=1.6.5,<2",
+  "python-dotenv>=1.2",
+  "httpx>=0.28,<0.29",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-m 'not live' --strict-markers"
+markers = [
+  "live: hits real external services (NVIDIA NIM, the web); excluded by default",
+  "integration: needs Postgres/Valkey (service containers)",
+]
+filterwarnings = ["ignore::DeprecationWarning:starlette.*"]
+
+[tool.coverage.run]
+source = ["packages", "apps"]
+omit = []
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["web", "spikes", "public", "gateway", ".agent", ".agents", ".claude"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "ASYNC", "S", "PT", "RET"]
+ignore = ["E501", "RUF001", "RUF002", "RUF003", "UP042"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["deno_api", "deno_core", "deno_gates", "deno_sources", "deno_worker", "deno_rag", "deno_llm", "deno_graphs", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "PT011", "PT018", "SLF001"]
+"{scripts,evals}/**" = ["S101", "S311"]
+"migrations/versions/**" = ["E501", "S608"]
+# v1 prototype code, kept reachable until Phases 8–10 replace it; not worth restyling.
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+files = ["packages/core/src", "packages/sources/src", "packages/llm/src", "packages/rag/src", "packages/graphs/src", "packages/gates/src", "apps/api/src/deno_api", "apps/worker/src"]
+

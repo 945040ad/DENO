@@ -1,0 +1,23 @@
+[project]
+name = "deno-core"
+version = "0.1.0"
+description = "Deno domain core: settings, logging, errors, domain schemas"
+requires-python = ">=3.12"
+dependencies = [
+  "deno-gates",
+  "pydantic>=2.13,<3",
+  "pydantic-settings>=2.15,<3",
+  "structlog>=26.1",
+  "sqlalchemy[asyncio]>=2.0.54,<2.1",
+  "asyncpg>=0.31,<0.32",
+  "alembic>=1.20,<2",
+  "pgvector>=0.5,<0.6",
+  "uuid-utils>=0.12,<1",
+  "redis[hiredis]>=8.0,<9",
+  "taskiq>=0.12.6,<0.13",
+  "taskiq-redis>=1.2.3,<2",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
