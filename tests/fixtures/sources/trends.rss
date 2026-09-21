@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:ht="https://trends.google.com/trending/rss" version="2.0">
+	<channel>
+		<title>Daily Search Trends</title>
+		<description>Recent searches</description>
+		<link>https://trends.google.com/trending/rss?geo=US</link>
+		<atom:link href="https://trends.google.com/trending/rss?geo=US" rel="self" type="application/rss+xml"/>
+		<item>
+			<title>churn analytics</title>
+			<ht:approx_traffic>500+</ht:approx_traffic>
+			<description/>
+			<link>https://trends.google.com/trending/rss?geo=US</link>
+			<pubDate>Wed, 23 Sep 2026 15:10:00 -0700</pubDate>
+			
+			<ht:picture_source>ESPN</ht:picture_source>
+			<ht:news_item>
+				<ht:news_item_title>Example headline</ht:news_item_title>
+				<ht:news_item_snippet/>
+				<ht:news_item_url>https://example.com/news</ht:news_item_url>
+				<ht:news_item_picture>https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcSISu7nctGlVRHE3-HfC2h-0YSPykI24qClAlKj8yDuIjpfmQ6B5b3W7MwFNZs</ht:news_item_picture>
+				<ht:news_item_source>ESPN</ht:news_item_source>
+			</ht:news_item>
+			<ht:news_item>
+				<ht:news_item_title>Example headline</ht:news_item_title>
+				<ht:news_item_snippet/>
+				<ht:news_item_url>https://example.com/news</ht:news_item_url>
+				<ht:news_item_picture>https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcTJOhDGEwFzl10fLaCoHfBKf16qx6A_OWp-RRSf_2sR8b48chLkNm2gniIsZ1Y</ht:news_item_picture>
+				<ht:news_item_source>Reuters</ht:news_item_source>
+			</ht:news_item>
+			<ht:news_item>
+				<ht:news_item_title>Example headline</ht:news_item_title>
+				<ht:news_item_snippet/>
+				<ht:news_item_url>https://example.com/news</ht:news_item_url>
+				<ht:news_item_picture>https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSAnvAxaTYUBE4k5V6FZo9Tq5gNVPDBH8ISJRaGXAcbhQWrGFEtR9HUhpQNSO0</ht:news_item_picture>
+				<ht:news_item_source>Yahoo Sports</ht:news_item_source>
+			</ht:news_item>
+		</item><item>
+			<title>ai writing tools</title>
+			<ht:approx_traffic>1000+</ht:approx_traffic>
+			<description/>
+			<link>https://trends.google.com/trending/rss?geo=US</link>
+			<pubDate>Wed, 23 Sep 2026 15:00:00 -0700</pubDate>
+			
+			<ht:picture_source>Jayski</ht:picture_source>
+			<ht:news_item>
+				<ht:news_item_title>Example headline</ht:news_item_title>
+				<ht:news_item_snippet/>
+				<ht:news_item_url>https://example.com/news</ht:news_item_url>
+				<ht:news_item_picture>https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcRjWhGoORMvn93tda2klXofxSxH_BODlNmKOYCzAee8aZsrXyhSlHtmlmkl0b8</ht:news_item_picture>
+				<ht:news_item_source>Jayski</ht:news_item_source>
+			</ht:news_item>
+			<ht:news_item>
+				<ht:news_item_title>Example headline</ht:news_item_title>
+				<ht:news_item_snippet/>
+				<ht:news_item_url>https://example.com/news</ht:news_item_url>
+				<ht:news_item_picture>https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSWQMA927_USkE4DwH6PlHKjlOGGkagfsi1kjWy4ennfLtjaT-v1skCVb8Tauw</ht:news_item_picture>
+				<ht:news_item_source>FOX Sports</ht:news_item_source>
+			</ht:news_item>
+			<ht:news_item>
+				<ht:news_item_title>Example headline</ht:news_item_title>
+				<ht:news_item_snippet/>
+				<ht:news_item_url>https://example.com/news</ht:news_item_url>
+				<ht:news_item_picture>https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcSQa6LH_Mh-Kd6RQk7kEf188Ww5gz4FhAafVv55kNEEvrqeHX-E8OyZllg0SVs</ht:news_item_picture>
+				<ht:news_item_source>WXII</ht:news_item_source>
+			</ht:news_item>
+		</item>
+</channel>
+</rss>

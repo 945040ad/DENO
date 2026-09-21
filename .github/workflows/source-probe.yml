@@ -1,0 +1,32 @@
+name: source-probe
+
+# Nightly live smoke test of every keyless source (docs/08 Phase 5). Non-blocking:
+# a failure opens an alert (red run), it never gates merges.
+on:
+  schedule: [{ cron: "17 4 * * *" }]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-cache: true }
+      - run: uv python install 3.12
+      - run: uv sync --frozen --python 3.12
+      - name: start SearXNG
+        run: |
+          docker run -d --name searxng -p 127.0.0.1:8890:8080 \
+            -v "$PWD/deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro" \
+            -e SEARXNG_SECRET="$(openssl rand -hex 16)" searxng/searxng:latest
+          for i in $(seq 1 30); do curl -sf "http://127.0.0.1:8890/healthz" && break; sleep 2; done
+      - name: probe
+        run: uv run python scripts/probe_sources.py | tee probe.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: source-probe, path: probe.json }

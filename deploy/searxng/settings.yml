@@ -1,0 +1,24 @@
+# SearXNG for keyless discovery (docs/08 Phase 5). Only the API/worker talk to it.
+use_default_settings:
+  engines:
+    keep_only: [google, bing, brave, duckduckgo, startpage, mojeek, qwant]
+server:
+  # Overridden by SEARXNG_SECRET in compose.
+  secret_key: "change-me"
+  limiter: false          # internal service; our clients rate-limit themselves
+  image_proxy: false
+  public_instance: false
+search:
+  safe_search: 0
+  formats: [json]
+outgoing:
+  request_timeout: 6.0
+  max_request_timeout: 10.0
+  pool_connections: 50
+# Google and Bing ship disabled; they are the most reliable for `site:` discovery,
+# and Brave/DuckDuckGo rate-limit or CAPTCHA quickly from a single IP.
+engines:
+  - name: google
+    disabled: false
+  - name: bing
+    disabled: false

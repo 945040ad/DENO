@@ -1,0 +1,20 @@
+[project]
+name = "deno-sources"
+version = "0.1.0"
+description = "Keyless, polite, compliance-aware clients for public social signals (Reddit via Arctic Shift, HN, X, LinkedIn, Product Hunt, Google Trends)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = [
+  "httpx[http2]>=0.28,<0.29",
+  "pydantic>=2.13,<3",
+  "selectolax>=0.4.12,<0.5",
+  "defusedxml>=0.7.1,<0.8",
+]
+
+[project.optional-dependencies]
+valkey = ["redis>=8.0,<9"]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"

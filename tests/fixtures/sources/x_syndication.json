@@ -1,0 +1,14 @@
+{
+ "__typename": "Tweet",
+ "created_at": "2026-05-12T13:48:37.000Z",
+ "favorite_count": 1627,
+ "conversation_count": 67,
+ "id_str": "2054197055476895995",
+ "lang": "en",
+ "text": "Our churn dropped 30% after we started calling every cancelled customer.",
+ "user": {
+  "id_str": "1",
+  "name": "Jane Founder",
+  "screen_name": "janefounder"
+ }
+}
