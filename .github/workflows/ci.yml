@@ -1,0 +1,84 @@
+name: ci
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: deno_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
+      valkey:
+        image: valkey/valkey:8-alpine
+        ports: ["6379:6379"]
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/deno_test
+      VALKEY_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with: { enable-cache: true }
+      - run: uv python install 3.12
+      - run: uv sync --frozen --python 3.12
+      - name: lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: typecheck
+        run: uv run mypy
+      - name: unit + integration tests
+        run: uv run pytest -m "not live" --cov --cov-report=term-missing:skip-covered
+      - name: gates eval (FPR <= 10% on real posts, catch >= 90% on AI posts)
+        run: uv run python evals/gates/run_eval.py
+      - name: retrieval eval (offline, fails on >5% regression)
+        run: uv run python evals/retrieval/run_eval.py
+
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  images:
+    needs: [python, web]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: build api image
+        uses: docker/build-push-action@v6
+        with: { context: ., file: Dockerfile, tags: "deno-api:ci", load: true, cache-from: type=gha, cache-to: "type=gha,mode=max" }
+      - name: build web image
+        uses: docker/build-push-action@v6
+        with: { context: web, tags: "deno-web:ci", load: true }
+      - name: scan api image
+        uses: aquasecurity/trivy-action@0.33.1
+        with: { image-ref: "deno-api:ci", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "1" }
+      - name: scan web image
+        uses: aquasecurity/trivy-action@0.33.1
+        with: { image-ref: "deno-web:ci", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "1" }
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }

@@ -1,0 +1,87 @@
+# Production stack on one VPS (ADR-011). Secrets come from Docker secrets /
+# the host environment, never from the image.
+#   DOMAIN=deno.example.com docker compose -f compose.prod.yml up -d
+name: deno
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web]
+    restart: unless-stopped
+
+  web:
+    image: ${REGISTRY:-ghcr.io/deno}/web:${TAG:-latest}
+    restart: unless-stopped
+    depends_on: [api]
+
+  api:
+    image: ${REGISTRY:-ghcr.io/deno}/api:${TAG:-latest}
+    env_file: .env.production
+    environment:
+      ENVIRONMENT: production
+      VALKEY_URL: redis://valkey:6379/0
+      SEARXNG_URL: http://searxng:8080
+    restart: unless-stopped
+    depends_on:
+      valkey: { condition: service_healthy }
+
+  worker:
+    image: ${REGISTRY:-ghcr.io/deno}/api:${TAG:-latest}
+    command: ["taskiq", "worker", "deno_worker.tasks:broker", "--workers", "2"]
+    env_file: .env.production
+    environment:
+      ENVIRONMENT: production
+      VALKEY_URL: redis://valkey:6379/0
+      SEARXNG_URL: http://searxng:8080
+    healthcheck: { disable: true }
+    stop_grace_period: 5m   # let in-flight runs finish (graceful drain)
+    restart: unless-stopped
+    depends_on:
+      valkey: { condition: service_healthy }
+
+  scheduler:
+    image: ${REGISTRY:-ghcr.io/deno}/api:${TAG:-latest}
+    command: ["taskiq", "scheduler", "deno_worker.tasks:scheduler"]
+    env_file: .env.production
+    environment:
+      ENVIRONMENT: production
+      VALKEY_URL: redis://valkey:6379/0
+    healthcheck: { disable: true }
+    restart: unless-stopped
+
+  migrate:
+    image: ${REGISTRY:-ghcr.io/deno}/api:${TAG:-latest}
+    command: ["alembic", "upgrade", "head"]
+    env_file: .env.production
+    profiles: [migrate]
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--appendonly", "yes"]
+    volumes: [valkey_data:/data]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:latest
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?set SEARXNG_SECRET}
+    volumes:
+      - ./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
+  valkey_data:

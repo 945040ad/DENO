@@ -1,0 +1,28 @@
+# Automatic HTTPS for $DOMAIN; everything goes to the Next.js BFF, which
+# proxies /api/* to FastAPI on the private network.
+{$DOMAIN} {
+	# Never compress run-progress streams (compression buffers them); everything else is compressed.
+	encode {
+		zstd
+		gzip
+		match {
+			header Content-Type text/html*
+			header Content-Type text/css*
+			header Content-Type text/plain*
+			header Content-Type application/json*
+			header Content-Type application/javascript*
+			header Content-Type image/svg+xml*
+		}
+	}
+	reverse_proxy web:3000 {
+		header_up X-Request-ID {http.request.uuid}
+		flush_interval -1
+	}
+	header {
+		-Server
+	}
+	log {
+		output stdout
+		format json
+	}
+}
