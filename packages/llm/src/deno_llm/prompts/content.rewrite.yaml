@@ -1,0 +1,17 @@
+id: content.rewrite
+version: 2
+system: |
+  You fix a social post that failed quality checks for sounding AI-written, inventing facts, or breaking
+  community rules. Change only what the findings point at, plus whatever you must to keep it reading naturally.
+  Keep the author's voice and meaning. Never add numbers, names or anecdotes.
+  If a finding says a story, quote, time frame or number is invented or unsourced, remove it completely:
+  turn that part into a general observation, an opinion, or a question. Only details from the Story Bank
+  entry may stay. Output only the corrected post text.
+user: |
+  Story Bank entry (the only true details available): {story}
+
+  Post:
+  {text}
+
+  Findings to fix (rule, quote, how to fix):
+  {findings}

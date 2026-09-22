@@ -1,0 +1,20 @@
+{"idea": 0, "idea_text": "A tool that predicts SaaS customer churn from support tickets", "query": "SaaS churn you only notice too late", "relevant": ["i00-r0", "i00-r1", "i00-r2", "i00-r3", "i00-r4"]}
+{"idea": 1, "idea_text": "An AI assistant that writes LinkedIn posts in the founder's own voice", "query": "writing LinkedIn posts takes hours and sounds generic", "relevant": ["i01-r0", "i01-r1", "i01-r2", "i01-r3", "i01-r4"]}
+{"idea": 2, "idea_text": "Automated bookkeeping for freelancers that categorises bank transactions", "query": "freelancer bookkeeping and categorising expenses at tax time", "relevant": ["i02-r0", "i02-r1", "i02-r2", "i02-r3", "i02-r4"]}
+{"idea": 3, "idea_text": "A scheduling tool that finds meeting slots across time zones for remote teams", "query": "scheduling meetings across time zones", "relevant": ["i03-r0", "i03-r1", "i03-r2", "i03-r3", "i03-r4"]}
+{"idea": 4, "idea_text": "Invoice chasing that sends polite automatic payment reminders", "query": "clients paying invoices late", "relevant": ["i04-r0", "i04-r1", "i04-r2", "i04-r3", "i04-r4"]}
+{"idea": 5, "idea_text": "A marketplace connecting restaurants with surplus food to local shelters", "query": "restaurants throwing away surplus food", "relevant": ["i05-r0", "i05-r1", "i05-r2", "i05-r3", "i05-r4"]}
+{"idea": 6, "idea_text": "Flaky test detection for CI pipelines", "query": "flaky tests breaking CI builds", "relevant": ["i06-r0", "i06-r1", "i06-r2", "i06-r3", "i06-r4"]}
+{"idea": 7, "idea_text": "A tenant screening app for small landlords", "query": "small landlords getting bad tenants", "relevant": ["i07-r0", "i07-r1", "i07-r2", "i07-r3", "i07-r4"]}
+{"idea": 8, "idea_text": "Meal planning for families with kids with allergies", "query": "planning meals around kids' food allergies", "relevant": ["i08-r0", "i08-r1", "i08-r2", "i08-r3", "i08-r4"]}
+{"idea": 9, "idea_text": "A podcast editing tool that removes filler words automatically", "query": "editing filler words out of podcast audio", "relevant": ["i09-r0", "i09-r1", "i09-r2", "i09-r3", "i09-r4"]}
+{"idea": 10, "idea_text": "Price monitoring for Shopify stores watching competitor prices", "query": "tracking competitor prices for an online store", "relevant": ["i10-r0", "i10-r1", "i10-r2", "i10-r3", "i10-r4"]}
+{"idea": 11, "idea_text": "A habit tracker for ADHD adults with gentle nudges", "query": "ADHD adults failing to keep habits", "relevant": ["i11-r0", "i11-r1", "i11-r2", "i11-r3", "i11-r4"]}
+{"idea": 12, "idea_text": "Contract review for small businesses that flags risky clauses", "query": "small businesses signing contracts with risky clauses", "relevant": ["i12-r0", "i12-r1", "i12-r2", "i12-r3", "i12-r4"]}
+{"idea": 13, "idea_text": "An app that helps nurses swap shifts", "query": "nurses struggling to swap shifts", "relevant": ["i13-r0", "i13-r1", "i13-r2", "i13-r3", "i13-r4"]}
+{"idea": 14, "idea_text": "Cold email deliverability checker that prevents spam folder placement", "query": "cold emails landing in spam", "relevant": ["i14-r0", "i14-r1", "i14-r2", "i14-r3", "i14-r4"]}
+{"idea": 15, "idea_text": "A tool that turns customer interviews into a searchable insights database", "query": "losing insights from customer interviews", "relevant": ["i15-r0", "i15-r1", "i15-r2", "i15-r3", "i15-r4"]}
+{"idea": 16, "idea_text": "Receipt scanning for construction contractors to track job costs", "query": "construction contractors losing receipts and job costs", "relevant": ["i16-r0", "i16-r1", "i16-r2", "i16-r3", "i16-r4"]}
+{"idea": 17, "idea_text": "A study planner for medical students preparing for board exams", "query": "medical students overwhelmed preparing for boards", "relevant": ["i17-r0", "i17-r1", "i17-r2", "i17-r3", "i17-r4"]}
+{"idea": 18, "idea_text": "Kubernetes cost monitoring that finds idle resources", "query": "surprisingly high Kubernetes cloud bills", "relevant": ["i18-r0", "i18-r1", "i18-r2", "i18-r3", "i18-r4"]}
+{"idea": 19, "idea_text": "A dog walking scheduler for busy pet owners", "query": "busy pet owners finding reliable dog walkers", "relevant": ["i19-r0", "i19-r1", "i19-r2", "i19-r3", "i19-r4"]}

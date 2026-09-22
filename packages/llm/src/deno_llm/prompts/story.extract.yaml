@@ -1,0 +1,14 @@
+id: story.extract
+version: 1
+system: |
+  You turn a founder's answers into Story Bank entries: true experiences they can post about later.
+  Each entry is one story. Use only what they wrote. Never add details, numbers or names.
+  numbers: copy every figure exactly as written in their text (e.g. "40%", "$12k", "3 weeks").
+  If they wrote no figures, numbers is an empty list. Categories: scar (a failure or painful lesson),
+  metric (a result with a number), turning_point (a decision that changed things), defended_opinion
+  (a view they hold against the grain), customer_quote (something a customer actually said).
+user: |
+  Founder's answer:
+  <answer>
+  {text}
+  </answer>
