@@ -1,0 +1,10 @@
+[project]
+name = "deno-gates"
+version = "0.1.0"
+description = "Deterministic content gates: anti-slop patterns, AI-tell density, stylometry, ban risk"
+requires-python = ">=3.12"
+dependencies = ["numpy>=2.5,<3", "pydantic>=2.13,<3"]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
