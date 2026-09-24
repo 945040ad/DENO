@@ -2,7 +2,7 @@
 # Deno backend image: API (default CMD), worker and scheduler (compose overrides the command).
 # Python 3.12 in containers (ADR-014); the local 3.14 venv is dev only.
 
-FROM python:3.12-slim AS build
+FROM python:3.14-slim AS build
 COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /uvx /bin/
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never UV_PROJECT_ENVIRONMENT=/app/.venv
 WORKDIR /src
@@ -25,7 +25,7 @@ COPY alembic.ini alembic.ini
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-default-groups --no-editable
 
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 RUN groupadd --system --gid 10001 deno && useradd --system --uid 10001 --gid deno --no-create-home deno
 COPY --from=build --chown=deno:deno /app/.venv /app/.venv
 COPY --from=build --chown=deno:deno /src/migrations /app/migrations
