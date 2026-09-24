@@ -1,0 +1,219 @@
+{
+  "measured_at": "2026-09-24T02:56:19+0530",
+  "results": [
+    {
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "stream": {
+        "ok": true,
+        "ttft": 3.6,
+        "total": 3.61,
+        "chars": 1771
+      },
+      "structured": {
+        "ok": false,
+        "error": "Exception: [400] {'message': 'unknown field `guided_json`, expected one of `greed_sampling`, `use_raw_prompt`, `annotations`, `backend_insta",
+        "elapsed": 63.6
+      }
+    },
+    {
+      "model": "nvidia/nemotron-nano-3-30b-a3b",
+      "stream": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function '2b2dcd47-c858-425a-9c04-4cacf2eac993': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.1
+      },
+      "structured": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function '2b2dcd47-c858-425a-9c04-4cacf2eac993': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.3
+      }
+    },
+    {
+      "model": "openai/gpt-oss-20b",
+      "stream": {
+        "ok": false,
+        "error": "SocketTimeoutError: Timeout on reading data from socket",
+        "elapsed": 60.1
+      },
+      "structured": {
+        "ok": false,
+        "error": "TimeoutError: ",
+        "elapsed": 90.1
+      }
+    },
+    {
+      "model": "z-ai/glm-5.3-flash",
+      "stream": {
+        "ok": true,
+        "ttft": 66.02,
+        "total": 70.77,
+        "chars": 241
+      },
+      "structured": {
+        "ok": true,
+        "total": 37.65,
+        "n": 3
+      }
+    },
+    {
+      "model": "deepseek-ai/deepseek-v4.1-flash",
+      "stream": {
+        "ok": true,
+        "ttft": 16.37,
+        "total": 18.75,
+        "chars": 495
+      },
+      "structured": {
+        "ok": false,
+        "error": "Exception: [400] Failed to deserialize the JSON body into the target type: unknown field `guided_json`, expected one of `greed_sampling`, `u",
+        "elapsed": 17.4
+      }
+    },
+    {
+      "model": "google/gemma-3-12b-it",
+      "stream": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function 'ee47df99-c92b-4dc9-b3a7-f3fb0f087b73': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.1
+      },
+      "structured": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function 'ee47df99-c92b-4dc9-b3a7-f3fb0f087b73': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.4
+      }
+    },
+    {
+      "model": "nv-mistralai/mistral-nemo-12b-instruct",
+      "stream": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function 'f8c05193-d2e2-4f0f-bb4d-7ad70070002b': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.1
+      },
+      "structured": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function 'f8c05193-d2e2-4f0f-bb4d-7ad70070002b': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.3
+      }
+    },
+    {
+      "model": "meta/llama-3.2-11b-vision-instruct",
+      "stream": {
+        "ok": true,
+        "ttft": 0.29,
+        "total": 37.16,
+        "chars": 985
+      },
+      "structured": {
+        "ok": false,
+        "total": 27.88,
+        "n": 0
+      }
+    },
+    {
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "stream": {
+        "ok": true,
+        "ttft": 1.14,
+        "total": 3.35,
+        "chars": 595
+      },
+      "structured": {
+        "ok": true,
+        "total": 6.3,
+        "n": 3
+      }
+    },
+    {
+      "model": "moonshotai/kimi-k2.6",
+      "stream": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function '23d4f03a-b8a6-4adb-a183-7daa083a09cc': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.1
+      },
+      "structured": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function '23d4f03a-b8a6-4adb-a183-7daa083a09cc': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.4
+      }
+    },
+    {
+      "model": "moonshotai/kimi-k3",
+      "stream": {
+        "ok": false,
+        "error": "SocketTimeoutError: Timeout on reading data from socket",
+        "elapsed": 60.1
+      },
+      "structured": {
+        "ok": false,
+        "error": "TimeoutError: ",
+        "elapsed": 90.0
+      }
+    },
+    {
+      "model": "z-ai/glm-5.3",
+      "stream": {
+        "ok": false,
+        "ttft": 7.18,
+        "total": 7.18,
+        "chars": 0
+      },
+      "structured": {
+        "ok": false,
+        "error": "Exception: [400] Failed to deserialize the JSON body into the target type: unknown field `guided_json`, expected one of `greed_sampling`, `u",
+        "elapsed": 16.9
+      }
+    },
+    {
+      "model": "google/gemma-4-31b-it",
+      "stream": {
+        "ok": false,
+        "error": "SocketTimeoutError: Timeout on reading data from socket",
+        "elapsed": 60.0
+      },
+      "structured": {
+        "ok": false,
+        "error": "TimeoutError: ",
+        "elapsed": 90.1
+      }
+    },
+    {
+      "model": "mistralai/mistral-nemotron",
+      "stream": {
+        "ok": false,
+        "error": "Exception: [500] Internal Server Error Inference connection error while making inference request",
+        "elapsed": 3.1
+      },
+      "structured": {
+        "ok": false,
+        "error": "Exception: [500] Internal Server Error Inference connection error while making inference request",
+        "elapsed": 0.9
+      }
+    },
+    {
+      "model": "mistralai/mistral-large-2-instruct",
+      "stream": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function '7fadd4de-e22a-48e4-90e9-f02ef14a74b9': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.1
+      },
+      "structured": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function '7fadd4de-e22a-48e4-90e9-f02ef14a74b9': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.3
+      }
+    },
+    {
+      "model": "nvidia/llama-3.1-nemotron-ultra-253b-v1",
+      "stream": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function '84bf12ff-edbd-4435-baea-0fa6a7453d2e': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.1
+      },
+      "structured": {
+        "ok": false,
+        "error": "Exception: [404] Not Found Function '84bf12ff-edbd-4435-baea-0fa6a7453d2e': Not found for account 'Dp1Xo0nAqbrFq2Jc_EQMAM54vuxS6SGBHCtCAs2Ba",
+        "elapsed": 0.3
+      }
+    }
+  ]
+}

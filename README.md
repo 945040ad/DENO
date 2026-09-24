@@ -88,16 +88,23 @@ Deno is a hybrid-architecture founder workspace designed for 2026 platform reali
 source .venv/bin/activate
 
 # Launch FastAPI server
-uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+uv run uvicorn deno_api.main:app --host 127.0.0.1 --port 8000
 ```
 
-### 3. Start the Deno 2 Gateway (Port 8080)
+### 3. Start the web app (Next.js - Port 3000)
 ```bash
-deno run --allow-net --allow-read --allow-env gateway/server.ts
+cd web
+cp .env.example .env.local   # add the Supabase URL + publishable key (docs/supabase-setup.md)
+npm install
+npm run dev
 ```
+
+Next.js serves the UI and proxies `/api/*` to FastAPI (`BACKEND_URL`, default `http://127.0.0.1:8000`).
 
 ### 4. Access Deno
-Open `http://localhost:8080` in your web browser — this loads the marketing landing page. Click **Validate an idea** (or go to `http://localhost:8080/auth.html`) to sign in, or go straight to `http://localhost:8080/app.html` for the founder workspace.
+Open `http://localhost:3000` for the landing page, `/auth` to log in or sign up, and `/app` for the founder workspace. Without Supabase keys the app runs in dev mode (no login required); with them, `/app` requires a session.
+
+The legacy static client (`public/`) and Deno gateway (`gateway/`) still run as before on port 8080 until they're removed (docs/08 Phase 1b).
 
 ---
 
@@ -106,12 +113,19 @@ Open `http://localhost:8080` in your web browser — this loads the marketing la
 Run unit and integration tests across the stack:
 
 ```bash
-# Run backend pytest suite (21 unit tests)
-PYTHONPATH=. .venv/bin/pytest -v backend/tests/ -k "not live"
+# Run backend pytest suite (includes Supabase JWT + per-user isolation tests)
+uv run pytest
+
+# Web: lint, types, production build
+cd web && npm run lint && npm run typecheck && npm run build
+
+# Web: pixel-parity check against the original static pages
+# (serve public/ on :8088 and `next start -p 3100` first)
+cd web && npm run test:visual
 
 # Run Deno gateway test
 deno test --allow-net --allow-read gateway/server_test.ts
 
 # Run end-to-end live pipeline test against NVIDIA NIM
-PYTHONPATH=. .venv/bin/pytest -v backend/tests/test_validation_live.py
+uv run pytest -m live
 ```
