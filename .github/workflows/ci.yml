@@ -69,10 +69,10 @@ jobs:
         uses: docker/build-push-action@v6
         with: { context: web, tags: "deno-web:ci", load: true }
       - name: scan api image
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with: { image-ref: "deno-api:ci", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "1" }
       - name: scan web image
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with: { image-ref: "deno-web:ci", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "1" }
 
   secrets:
