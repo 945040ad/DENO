@@ -65,6 +65,14 @@ class Profile(TimestampMixin, Base):
     display_name: Mapped[str | None] = mapped_column(sa.String(120))
     role: Mapped[str] = mapped_column(sa.String(16), server_default="user")
     plan: Mapped[Plan] = mapped_column(enum_col(Plan), server_default=Plan.FREE.value)
+    # Shown in drafts and disclosures ("who the posts are from"); edited only through the API.
+    product_name: Mapped[str | None] = mapped_column(sa.String(120))
+    product_url: Mapped[str | None] = mapped_column(sa.Text)
+    timezone: Mapped[str | None] = mapped_column(sa.String(64))
+    founder_role: Mapped[str | None] = mapped_column(sa.String(40))
+    handles: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    voice_preset: Mapped[str | None] = mapped_column(sa.String(40))
+    notification_prefs: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
 
 
 class ApiAuditLog(IdMixin, Base):

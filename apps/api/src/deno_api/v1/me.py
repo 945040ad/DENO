@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Response, status
 
 from deno_api.auth import AuthUser, current_user
 from deno_api.deps import Scope
-from deno_api.v1.schemas import MeOut
+from deno_api.v1.schemas import Handle, MeOut, MeUpdate
 from deno_core.logging import get_logger
 from deno_core.settings import get_settings
 
@@ -17,12 +17,41 @@ router = APIRouter(prefix="/me", tags=["account"])
 log = get_logger(__name__)
 
 
+def _me_out(scope_user_id: Any, email: str | None, profile: Any) -> MeOut:
+    return MeOut(
+        id=scope_user_id,
+        email=email,
+        display_name=profile.display_name,
+        plan=profile.plan,
+        role=profile.role,
+        product_name=profile.product_name,
+        product_url=profile.product_url,
+        timezone=profile.timezone,
+        founder_role=profile.founder_role,
+        handles=[Handle.model_validate(h) for h in profile.handles or [] if isinstance(h, dict)],
+        voice_preset=profile.voice_preset,
+        notification_prefs={k: bool(v) for k, v in (profile.notification_prefs or {}).items()},
+    )
+
+
 @router.get("")
 async def me(scope: Scope, user: Annotated[AuthUser, Depends(current_user)]) -> MeOut:
     profile = await scope.ensure_profile()
-    return MeOut(
-        id=scope.user_id, email=user.email, display_name=profile.display_name, plan=profile.plan, role=profile.role
-    )
+    return _me_out(scope.user_id, user.email, profile)
+
+
+@router.patch("")
+async def update_me(body: MeUpdate, scope: Scope, user: Annotated[AuthUser, Depends(current_user)]) -> MeOut:
+    profile = await scope.ensure_profile()
+    changes = body.model_dump(exclude_unset=True)
+    if "handles" in changes and body.handles is not None:
+        changes["handles"] = [h.model_dump() for h in body.handles]
+    if "notification_prefs" in changes and body.notification_prefs is not None:
+        changes["notification_prefs"] = {**(profile.notification_prefs or {}), **body.notification_prefs}
+    for key, value in changes.items():
+        setattr(profile, key, value or None if isinstance(value, str) else value)
+    await scope.session.flush()
+    return _me_out(scope.user_id, user.email, profile)
 
 
 @router.get("/export")

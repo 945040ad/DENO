@@ -79,6 +79,7 @@ def test_v1_contract(case: schemathesis.Case) -> None:
         excluded = [positive_data_acceptance]
     # Titles made only of C1 control characters are cleaned to nothing; the generator's regex engine and
     # ours disagree on what those characters are, so it calls the resulting 422 a rejection of valid data.
-    if case.method == "PATCH" and case.path == "/api/v1/projects/{project_id}":
+    # Timezones are checked against the IANA database, which a JSON schema can't express.
+    if case.method == "PATCH" and case.path in ("/api/v1/projects/{project_id}", "/api/v1/me"):
         excluded = [positive_data_acceptance]
     case.call_and_validate(timeout=10, excluded_checks=excluded)

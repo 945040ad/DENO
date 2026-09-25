@@ -1,6 +1,6 @@
 """Tiny async load test: N concurrent clients hammering read endpoints; prints status counts and latency.
 
-    uv run python scripts/load_test.py --base http://127.0.0.1:8001 --users 50 --requests 40
+uv run python scripts/load_test.py --base http://127.0.0.1:8001 --users 50 --requests 40
 """
 
 from __future__ import annotations

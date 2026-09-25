@@ -227,7 +227,7 @@ export function AuthScreen({ initialMode, next, initialError, authEnabled }: Pro
                   <span className="check__box" id="chk-remember-box">{remember ? '✓' : ''}</span>
                   Keep me signed in
                 </button>
-                <a href="#reset" className="link-mono" style={{ fontSize: 11 }} onClick={onForgotPassword}>Forgot password →</a>
+                <a href="/forgot" className="link-mono" style={{ fontSize: 11 }}>Forgot password →</a>
               </div>
 
               <button type="button" className="check" id="chk-agree" role="checkbox" aria-checked={agree} hidden={isLogin} onClick={() => { setAgree((a) => !a); setError(null); }}>
@@ -258,7 +258,7 @@ export function AuthScreen({ initialMode, next, initialError, authEnabled }: Pro
 
             <div id="visual-login" className="auth-visual__panel" hidden={!isLogin}>
               <div className="auth-visual__row">
-                <span className="mono" style={{ color: 'var(--lime)' }}>Your last run · 3 days ago</span>
+                <span className="mono" style={{ color: 'var(--lime)' }}>Sample run · what you get</span>
                 <span className="mono-plain" style={{ color: 'var(--on-dark-dim)' }}>deno/workspace</span>
               </div>
               <div className="auth-visual__verdict">
@@ -276,7 +276,7 @@ export function AuthScreen({ initialMode, next, initialError, authEnabled }: Pro
               </div>
               <div className="auth-visual__shot">
                 <div className="auth-visual__shot-head">
-                  <span>WORKSPACE · 01 INTAKE</span><span style={{ color: 'var(--on-dark-dim)' }}>RESTORED ON LOGIN</span>
+                  <span>WORKSPACE · 01 INTAKE</span><span style={{ color: 'var(--on-dark-dim)' }}>EXAMPLE</span>
                 </div>
                 <img src="/assets/workspace-intake.png" alt="Deno workspace intake screen" />
               </div>

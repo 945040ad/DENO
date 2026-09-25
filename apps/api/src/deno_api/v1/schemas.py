@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 from deno_core.db import models as m
 from deno_core.db.enums import ProjectStatus, RunStatus, Source, Stance, TakedownStatus, VerdictKind
@@ -203,12 +203,48 @@ class ReportOut(BaseModel):
 # ---- account ----------------------------------------------------------------------
 
 
+NOTIFICATION_KEYS = ("verdict_ready", "draft_ready", "rule_changed", "ban_risk", "weekly_digest", "product_updates")
+VOICE_PRESETS = ("terse_engineer", "build_in_public", "dry_humour", "data_first", "storyteller")
+FOUNDER_ROLES = ("solo_founder", "co_founder", "indie_hacker", "founding_marketer")
+
+
+class Handle(BaseModel):
+    platform: Literal["reddit", "x", "linkedin", "hn"]
+    handle: CleanText = Field(min_length=2, max_length=120, pattern=r"^[^\s]+$")
+
+
 class MeOut(BaseModel):
     id: uuid.UUID
     email: str | None
     display_name: str | None
     plan: str
     role: str
+    product_name: str | None = None
+    product_url: str | None = None
+    timezone: str | None = None
+    founder_role: str | None = None
+    handles: list[Handle] = Field(default_factory=list)
+    voice_preset: str | None = None
+    notification_prefs: dict[str, bool] = Field(default_factory=dict)
+
+
+class MeUpdate(BaseModel):
+    """Only the fields you send change. The email is managed by the login provider, not here."""
+
+    display_name: CleanText | None = Field(default=None, max_length=120)
+    product_name: CleanText | None = Field(default=None, max_length=120)
+    product_url: CleanText | None = Field(default=None, max_length=500)
+    timezone: CleanText | None = Field(default=None, max_length=64, description="IANA name, e.g. Asia/Kolkata")
+    founder_role: Literal["solo_founder", "co_founder", "indie_hacker", "founding_marketer"] | None = None
+    handles: list[Handle] | None = Field(default=None, max_length=10)
+    voice_preset: Literal["terse_engineer", "build_in_public", "dry_humour", "data_first", "storyteller"] | None = None
+    notification_prefs: (
+        dict[
+            Literal["verdict_ready", "draft_ready", "rule_changed", "ban_risk", "weekly_digest", "product_updates"],
+            StrictBool,
+        ]
+        | None
+    ) = None
 
 
 # ---- takedowns --------------------------------------------------------------------

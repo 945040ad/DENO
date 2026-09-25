@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { FontLinks } from '@/components/FontLinks';
 import '@/styles/base.css';
 import '@/styles/app.css';
+import '@/styles/dv.css';
 
 export const metadata: Metadata = {
   title: 'Deno — Workspace',

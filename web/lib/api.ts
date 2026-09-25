@@ -109,6 +109,8 @@ export interface VoiceProfile {
   strong: boolean;
   threshold: number;
   created_at: string;
+  avg_draft_delta: number | null;
+  drafts_scored: number;
 }
 
 export interface Story {
@@ -236,16 +238,29 @@ export interface Billing {
   usage: { kind: string; used: number; limit: number | null }[];
 }
 
+export interface Handle {
+  platform: 'reddit' | 'x' | 'linkedin' | 'hn';
+  handle: string;
+}
+
 export interface Me {
   id: string;
   email: string | null;
   display_name: string | null;
   plan: string;
   role: string;
+  product_name: string | null;
+  product_url: string | null;
+  timezone: string | null;
+  founder_role: string | null;
+  handles: Handle[];
+  voice_preset: string | null;
+  notification_prefs: Record<string, boolean>;
 }
 
 export const api = {
   me: () => request<Me>('/me'),
+  updateMe: (body: Partial<Omit<Me, 'id' | 'email' | 'plan' | 'role'>>) => send<Me>('PATCH', '/me', body),
   billing: () => request<Billing>('/billing'),
   checkout: () => send<{ url: string }>('POST', '/billing/checkout'),
   portal: () => send<{ url: string }>('POST', '/billing/portal'),

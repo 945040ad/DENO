@@ -10,7 +10,7 @@ from typing import Annotated, Any, Literal, cast
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, Request, Response, status
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import BaseModel, Field, StrictBool
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from deno_api.deps import Events, Scope, UserId, get_sessionmaker, rate_limit
@@ -58,6 +58,8 @@ class VoiceProfileOut(BaseModel):
     strong: bool
     threshold: float
     created_at: datetime
+    avg_draft_delta: float | None = Field(default=None, description="Mean Delta of your gated drafts vs your profile")
+    drafts_scored: int = 0
 
 
 class StoryIn(BaseModel):
@@ -224,12 +226,21 @@ async def get_voice_profile(scope: Scope) -> VoiceProfileOut | None:
     if row is None:
         return None
     p = VoiceProfile.from_dict(row.delta_baseline)
+    avg, count = (
+        await scope.session.execute(
+            select(func.avg(m.GateResult.score), func.count(m.GateResult.id)).where(
+                m.GateResult.user_id == scope.user_id, m.GateResult.layer == "voice", m.GateResult.score.is_not(None)
+            )
+        )
+    ).one()
     return VoiceProfileOut(
         version=row.version,
         samples=int(row.features.get("samples", 0)),
         strong=p.strong,
         threshold=p.threshold,
         created_at=row.created_at,
+        avg_draft_delta=round(float(avg), 3) if avg is not None else None,
+        drafts_scored=int(count),
     )
 
 
@@ -505,9 +516,25 @@ async def export_draft(draft_id: uuid.UUID, scope: Scope) -> DraftOut:
     return _draft_out(draft, (await scope.gate_results([draft.id])).get(draft.id, []))
 
 
+async def _check_audit_quota(scope: UserScope) -> None:
+    profile = await scope.ensure_profile()
+    quota = (
+        await scope.session.execute(
+            select(m.Quota).where(m.Quota.plan == (profile.plan or Plan.FREE), m.Quota.kind == UsageKind.AUDIT)
+        )
+    ).scalar_one_or_none()
+    if quota is None:
+        return
+    month_start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if await scope.usage_since(UsageKind.AUDIT, month_start) >= quota.monthly_limit:
+        raise QuotaExceeded(f"Your plan includes {quota.monthly_limit} audits a month.")
+
+
 @router.post("/gates/audit")
 async def audit(body: AuditIn, scope: Scope) -> AuditOut:
-    """Run the deterministic gates on any text (Ban Risk Studio)."""
+    """Run the deterministic gates on any text (Ban Risk Studio). Counts toward the monthly audit quota."""
+    await _check_audit_quota(scope)
+    await scope.record_usage(UsageKind.AUDIT)
     rules = None
     if body.community:
         row = (

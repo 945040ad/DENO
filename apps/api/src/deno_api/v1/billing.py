@@ -71,7 +71,7 @@ async def billing(scope: Scope, request: Request) -> BillingOut:
     }
     usage = [
         UsageLine(kind=kind.value, used=await scope.usage_since(kind, month_start), limit=quotas.get(kind))
-        for kind in (UsageKind.VALIDATION_RUN, UsageKind.CONTENT_PLAN)
+        for kind in (UsageKind.VALIDATION_RUN, UsageKind.CONTENT_PLAN, UsageKind.AUDIT)
     ]
     return BillingOut(
         plan=profile.plan,
