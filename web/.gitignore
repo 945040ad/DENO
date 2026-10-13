@@ -7,3 +7,6 @@ next-env.d.ts
 .env.local
 .env*.local
 visual-diff/
+.vercel
+.env*
+!.env.example

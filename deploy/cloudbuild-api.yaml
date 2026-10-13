@@ -1,0 +1,7 @@
+# Cloud Build for the backend image. The Dockerfile uses RUN --mount caches, which need BuildKit.
+# gcloud builds submit . --region asia-northeast1 --config deploy/cloudbuild-api.yaml --substitutions _IMAGE=<registry>/api:<tag>
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env: ["DOCKER_BUILDKIT=1"]
+    args: ["build", "-t", "${_IMAGE}", "."]
+images: ["${_IMAGE}"]

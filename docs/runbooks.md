@@ -3,6 +3,10 @@
 Short, do-this-now procedures. Stack: Caddy → Next.js (web) → FastAPI (api) + taskiq (worker, scheduler) →
 Supabase Postgres + Valkey + SearXNG (compose.prod.yml).
 
+> **The live deployment is the free tier** (Vercel + Cloud Run + Upstash). Its health checks, logs, rollback
+> and secret rotation are in [`09_FREE_DEPLOYMENT.md` §8](09_FREE_DEPLOYMENT.md#8-operating-it). The incident
+> procedures below apply to both setups; read "worker" as the `deno-run` job there.
+
 ## Health at a glance
 
 - `curl https://$DOMAIN/api/v1/openapi.json` → 200 means Caddy, web and API are up.

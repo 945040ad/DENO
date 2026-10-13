@@ -1,0 +1,15 @@
+# Files Cloud Build must never receive (gcloud builds submit)
+.git
+.gitignore
+#!include:.gitignore
+.env
+.env.*
+**/.env
+**/.env.*
+*.db
+.venv/
+web/
+public/
+design/
+spikes/
+tests/

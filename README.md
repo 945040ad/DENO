@@ -2,6 +2,8 @@
 
 > **"Deno tells you if your idea is worth building — then gives you everything you need to get your first users, for free channels, in your own voice, without getting banned."**
 
+**Live:** https://deno-web-eight.vercel.app
+
 ---
 
 ## Overview
@@ -16,116 +18,62 @@ Deno is a hybrid-architecture founder workspace designed for 2026 platform reali
 
 ## Technology Stack
 
-* **API Gateway & Web Host:** Deno 2 (TypeScript, `Deno.serve`, static asset streaming)
-* **Core ML & Agent Engine:** Python 3.14 + FastAPI + Pydantic v2 + NumPy (Burrows' Delta stylometry)
-* **LLM Model & Provider:** NVIDIA NIM (`meta/llama-3.2-11b-vision-instruct` via `https://integrate.api.nvidia.com/v1`)
-* **Persistence:** hosted Supabase Postgres + pgvector (Alembic migrations, RLS). Free-tier deploy plan: `docs/09_FREE_DEPLOYMENT.md`
-* **Frontend UI:** Vanilla CSS (editorial hard-edge design system — DM Serif Display / Schibsted Grotesk / JetBrains Mono) + Vanilla JS (Reactive DOM & SSE streaming)
+| Layer | Technology |
+|---|---|
+| Web | Next.js 16 + React 19 (TypeScript), Supabase Auth via `@supabase/ssr` — on **Vercel** |
+| API | Python 3.12, FastAPI, Pydantic v2 — on **Google Cloud Run** |
+| Agents | LangGraph + LangChain, Postgres checkpointer — one **Cloud Run Job** execution per run |
+| LLM | NVIDIA NIM (Nemotron 3 Super 120B, Llama 3.2 11B fallback, Nemotron embed/rerank) |
+| Data | **Supabase** Postgres + pgvector (SQLAlchemy async, Alembic); **Upstash** Redis |
+| Search | Self-hosted SearXNG (private Cloud Run service) + keyless sources |
+
+Full breakdown: [`docs/11_TECH_STACK.md`](docs/11_TECH_STACK.md).
 
 ---
 
-## Directory Structure
+## Documentation
 
-```
-├── .env                              # Environment configuration (NVIDIA NIM key, ports)
-├── .env.example                      # Template environment variables
-├── .gitignore                        # Git exclusion rules
-├── README.md                         # Project documentation
-├── docs/                             # Full architectural & research documentation
-│   ├── 01_PRD.md                     # Product Requirements & User Stories (US-001 to US-014)
-│   ├── 02_ARCHITECTURE.md            # Hybrid architecture, LangGraph DAG, schemas
-│   ├── 03_ANTI_SLOP_TAXONOMY.md      # Peter Yang 18 patterns + 2026 density rules
-│   ├── 04_STORY_BANK_AND_STYLOMETRY.md # Burrows' Delta math & Founder Story Bank
-│   └── 05_PLATFORM_RULES_AND_COMMUNITIES.md # 30 target subreddits & platform limits
-├── gateway/                          # Deno 2 API Gateway & Web Server
-│   ├── server.ts                     # Reverse proxy to FastAPI & static file server (Port 8080)
-│   └── server_test.ts                # Deno native test suite
-├── backend/                          # Python Core Engine (Port 8000)
-│   ├── app/
-│   │   ├── config.py                 # Pydantic Settings & .env loading
-│   │   ├── main.py                   # FastAPI app with REST & SSE endpoints
-│   │   ├── models/schemas.py         # Strict Pydantic domain models
-│   │   ├── db/storage.py             # Idempotent SQLite storage manager
-│   │   ├── engine/
-│   │   │   ├── anti_slop.py          # 18-pattern AST/regex detector (no-ai-slop)
-│   │   │   ├── density_scorer.py     # 2026 AI Tell & paragraph density scorer
-│   │   │   ├── stylometry.py         # Burrows' Delta distance & vector calculator
-│   │   │   └── ban_risk.py           # Unified 0-100 Ban Risk Scorer with fixes
-│   │   └── agents/
-│   │       ├── llm_client.py         # Async NVIDIA NIM client
-│   │       ├── validation_pipeline.py# 8-agent adversarial validation DAG
-│   │       └── content_pipeline.py   # 30-day calendar planner with Story Bank
-│   └── tests/                        # Pytest automated test suite
-│       ├── test_anti_slop.py         # Tests for all 18 slop patterns
-│       ├── test_density_scorer.py    # Tests for 2026 vocabulary density tells
-│       ├── test_stylometry.py        # Tests for Burrows' Delta & voice distance
-│       ├── test_ban_risk.py          # Tests for 0-100 score & deductions
-│       ├── test_api.py               # Tests for FastAPI endpoints & storage
-│       └── test_validation_live.py   # Live end-to-end multi-agent pipeline test
-└── public/                           # Frontend Web Assets
-    ├── index.html                    # Marketing landing page
-    ├── auth.html                     # Log in / sign up
-    ├── app.html                      # Founder workspace (6-tab product)
-    ├── base.css                      # Shared design-system tokens & primitives
-    ├── landing.css / landing.js      # Landing page styles & interactions
-    ├── auth.css / auth.js            # Auth page styles & client-side validation
-    ├── app.css / app.js              # Workspace styles & reactive UI / SSE listener
-    └── assets/                       # Static images (e.g. workspace-intake.png)
-```
+| Doc | What it covers |
+|---|---|
+| [`docs/09_FREE_DEPLOYMENT.md`](docs/09_FREE_DEPLOYMENT.md) | **How it's deployed and how to deploy** — live URLs, resources, from-scratch setup, releases, rollback, gotchas |
+| [`docs/10_CONFIGURATION.md`](docs/10_CONFIGURATION.md) | **Every environment variable** — backend, web, secrets, prod values |
+| [`docs/11_TECH_STACK.md`](docs/11_TECH_STACK.md) | Stack, repo layout, request paths, local development |
+| [`docs/supabase-setup.md`](docs/supabase-setup.md) | Supabase Auth settings and keys |
+| [`docs/runbooks.md`](docs/runbooks.md) | Incident procedures |
+| [`docs/01_PRD.md`](docs/01_PRD.md) … [`docs/08_DEVELOPMENT_PLAN.md`](docs/08_DEVELOPMENT_PLAN.md) | Product, architecture, research, plan |
+| [`progress.md`](progress.md) | Build log |
 
 ---
 
-## Quickstart
+## Quickstart (local)
 
-### 1. Prerequisites
-- Python 3.10+ installed
-- Deno 2+ installed
-- NVIDIA NIM API Key configured in `.env`
+Prerequisites: Python 3.12+ with [uv](https://docs.astral.sh/uv/), Node 20+, Docker (for local Redis/SearXNG).
 
-### 2. Start the Backend (FastAPI - Port 8000)
 ```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Launch FastAPI server
+cp .env.example .env              # NIM key, Supabase DATABASE_URL etc. — docs/10_CONFIGURATION.md
+cp web/.env.example web/.env.local
+docker compose -f compose.dev.yml up -d valkey searxng
+uv sync && uv run alembic upgrade head
 uv run uvicorn deno_api.main:app --host 127.0.0.1 --port 8000
+uv run taskiq worker deno_worker.tasks:broker --workers 1
+cd web && npm install && npm run dev   # http://localhost:3000
 ```
 
-### 3. Start the web app (Next.js - Port 3000)
-```bash
-cd web
-cp .env.example .env.local   # add the Supabase URL + publishable key (docs/supabase-setup.md)
-npm install
-npm run dev
-```
+Without Supabase keys the app runs in dev mode (no login). Next.js proxies `/api/*` to `BACKEND_URL`.
 
-Next.js serves the UI and proxies `/api/*` to FastAPI (`BACKEND_URL`, default `http://127.0.0.1:8000`).
-
-### 4. Access Deno
-Open `http://localhost:3000` for the landing page, `/auth` to log in or sign up, and `/app` for the founder workspace. Without Supabase keys the app runs in dev mode (no login required); with them, `/app` requires a session.
-
-The legacy static client (`public/`) and Deno gateway (`gateway/`) still run as before on port 8080 until they're removed (docs/08 Phase 1b).
-
----
-
-## Automated Test Suite
-
-Run unit and integration tests across the stack:
+## Tests
 
 ```bash
-# Run backend pytest suite (includes Supabase JWT + per-user isolation tests)
-uv run pytest
-
-# Web: lint, types, production build
-cd web && npm run lint && npm run typecheck && npm run build
-
-# Web: pixel-parity check against the original static pages
-# (serve public/ on :8088 and `next start -p 3100` first)
-cd web && npm run test:visual
-
-# Run Deno gateway test
-deno test --allow-net --allow-read gateway/server_test.ts
-
-# Run end-to-end live pipeline test against NVIDIA NIM
-uv run pytest -m live
+uv run ruff check . && uv run mypy && uv run pytest     # integration: docker compose -f compose.dev.yml --profile test up -d postgres-test
+uv run pytest -m live                                   # live NIM tests (opt-in)
+cd web && npm run lint && npx tsc --noEmit && npm run build
 ```
+
+## Deploy
+
+```bash
+git push origin main            # web redeploys on Vercel automatically
+bash deploy/deploy-free.sh      # backend: build image, update Cloud Run job + API + crons
+```
+
+Details, first-time setup and rollback: [`docs/09_FREE_DEPLOYMENT.md`](docs/09_FREE_DEPLOYMENT.md).

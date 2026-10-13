@@ -29,7 +29,7 @@ Dashboard → **Authentication**:
 - **Sign In / Providers → Email**: enabled, *Confirm email* on, minimum password length **10** (the UI enforces 10 too).
 - **Sign In / Providers → Google**: enable, paste the Google OAuth client id/secret. In Google Cloud, the authorised redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`.
 - **URL Configuration**:
-  - Site URL: `http://localhost:3000` (prod: the real origin)
+  - Site URL: `http://localhost:3000` (prod: the real origin, today `https://deno-web-eight.vercel.app`)
   - Redirect URLs: `http://localhost:3000/**` and the production origin `/**`. Nothing else.
 - **JWT Keys**: new projects use asymmetric signing keys by default; keep that. (Legacy HS256 projects: set `SUPABASE_LEGACY_JWT_SECRET` on the API only.)
 - **Emails → SMTP**: **required before launch.** With *Confirm email* on, every sign-up needs an email, and the built-in sender only allows a few emails an hour. Set up custom SMTP (Resend or Postmark free tiers; verify your sending domain with SPF/DKIM), then raise **Rate Limits → emails sent per hour**.

@@ -33,6 +33,12 @@ The v1 prototype (8-agent DAG, anti-slop engines, static UI + Deno gateway) is d
 
 ## Log
 
+### 2026-10-13 — Deployed (free tier)
+- **Live:** web https://deno-web-eight.vercel.app (Vercel `deno-web`), API on Cloud Run `deno-api` (GCP `deno-gtm`, `asia-northeast1`), graph runs as Cloud Run Job `deno-run`, private SearXNG, Cloud Scheduler crons, Upstash Redis, Supabase DB already at migration `0003`.
+- `deploy/deploy-free.sh` (one-command release), `deploy/cloudbuild-api.yaml` (BuildKit), `.gcloudignore`.
+- Docs: `docs/09_FREE_DEPLOYMENT.md` rewritten as the deployment guide; new `docs/10_CONFIGURATION.md` (every variable) and `docs/11_TECH_STACK.md`; README refreshed.
+- Open: custom SMTP, Turnstile, separate prod Supabase project, Stripe, CI deploy on tag.
+
 ### 2026-10-06 — launch blockers, free-tier deploy code
 - **Database:** `DATABASE_URL` now targets the hosted Supabase session pooler (`.env` still holds a placeholder password until it's filled in). Local Docker runs only Valkey, SearXNG and `postgres-test`. The integration tests refuse Supabase hosts, because they drop every table. The CLI scripts default to `DATABASE_URL`.
 - **Honest copy:** removed claims the product doesn't back from the landing, auth screen and metadata: TAM/SAM/SOM, "unlimited ideas", "30+ communities" (12), "18 patterns" (20), "eight agents", video scripts and reply drafts, "~90 s" (3–6 min), the 25,000-posts figure, the LinkedIn slop filter and the fake "restoring your last run" login message. Pricing now says free during the beta, with the real quotas (5 validations, 1 plan, 200 audits a month). Sample cards use the real churn-prediction run (pivot 65%, 89 posts, 21 verified claims).
