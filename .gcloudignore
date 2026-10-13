@@ -1,15 +1,18 @@
-# Files Cloud Build must never receive (gcloud builds submit)
-.git
-.gitignore
-#!include:.gitignore
-.env
-.env.*
+# Cloud Build upload allow-list (gcloud builds submit .). Upload only what the Dockerfile copies,
+# so secrets (.env), caches and tool folders never leave this machine.
+/*
+!/Dockerfile
+!/.dockerignore
+!/pyproject.toml
+!/uv.lock
+!/alembic.ini
+!/packages/
+!/apps/
+!/migrations/
+!/deploy/
+**/__pycache__/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.pytest_cache/
 **/.env
 **/.env.*
-*.db
-.venv/
-web/
-public/
-design/
-spikes/
-tests/
