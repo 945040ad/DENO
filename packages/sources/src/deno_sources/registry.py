@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
-from deno_sources.base import SearxngClient, SourceClient
+from deno_sources.base import HeaderProvider, SearxngClient, SourceClient
 from deno_sources.feeds import ProductHuntClient, TrendsClient
 from deno_sources.hn import HackerNewsClient
 from deno_sources.linkedin import LinkedInJobsClient, LinkedInPostsClient
@@ -48,6 +48,7 @@ class SourceConfig:
     subreddits: list[str] = field(default_factory=list)
     user_agent: str | None = None
     daily_caps: dict[str, int] = field(default_factory=lambda: dict(DAILY_CAPS))
+    searxng_headers: HeaderProvider | None = None
 
 
 def build_fetcher(
@@ -67,7 +68,7 @@ def build_fetcher(
 
 
 def build_clients(config: SourceConfig, fetcher: Fetcher) -> dict[SourceName, SourceClient]:
-    searx = SearxngClient(fetcher, config.searxng_url)
+    searx = SearxngClient(fetcher, config.searxng_url, config.searxng_headers)
     return {
         SourceName.REDDIT: RedditClient(fetcher, config.subreddits),
         SourceName.X: XClient(fetcher, searx),

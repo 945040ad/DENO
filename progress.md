@@ -1,6 +1,6 @@
 # Deno — Progress
 
-**Last updated:** 2026-09-24
+**Last updated:** 2026-10-06
 **Current work:** Flagship rebuild — `.claude/prds/deno-flagship.prd.md`, plan `docs/08_DEVELOPMENT_PLAN.md`
 **Stack decisions (2026-09-24):** hosted Supabase Auth (no local containers) · Next.js 16 web client, pixel-identical to the v1 UI · LangGraph 1.2 + LangChain 1.x agents on NVIDIA NIM · Postgres + pgvector on the same Supabase project.
 
@@ -32,6 +32,15 @@ The v1 prototype (8-agent DAG, anti-slop engines, static UI + Deno gateway) is d
 ---
 
 ## Log
+
+### 2026-10-06 — launch blockers, free-tier deploy code
+- **Database:** `DATABASE_URL` now targets the hosted Supabase session pooler (`.env` still holds a placeholder password until it's filled in). Local Docker runs only Valkey, SearXNG and `postgres-test`. The integration tests refuse Supabase hosts, because they drop every table. The CLI scripts default to `DATABASE_URL`.
+- **Honest copy:** removed claims the product doesn't back from the landing, auth screen and metadata: TAM/SAM/SOM, "unlimited ideas", "30+ communities" (12), "18 patterns" (20), "eight agents", video scripts and reply drafts, "~90 s" (3–6 min), the 25,000-posts figure, the LinkedIn slop filter and the fake "restoring your last run" login message. Pricing now says free during the beta, with the real quotas (5 validations, 1 plan, 200 audits a month). Sample cards use the real churn-prediction run (pivot 65%, 89 posts, 21 verified claims).
+- **2FA enforced:** a password-only (`aal1`) token of a user with a verified TOTP factor gets `403 mfa_required` from the API, which checks `auth.mfa_factors` with a 60 s cache. The web middleware sends that user to the new `/auth/mfa` code screen. Before this, 2FA could be enrolled but was never asked for.
+- **Notifications:** the settings say emails aren't switched on yet (no sending exists).
+- **Free deploy (docs/09 §4):** `TASK_RUNNER=cloudrun_job` starts one Cloud Run Job execution per graph run (`python -m deno_worker.run_once`). `/internal/cron/{purge,requeue}` accept only Cloud Scheduler OIDC tokens. Private SearXNG gets an ID token (`SEARXNG_GCP_AUTH`). Maintenance moved to `deno_core.maintenance`, shared with taskiq. Added `deploy/searxng/Dockerfile`.
+- **Web:** favicon; lint now has 0 warnings.
+- **Tests:** 138 + 45 contract subtests (25 new: 2FA, cron auth, Cloud Run Jobs, run_once, SearXNG token); ruff, mypy --strict (84 files), tsc, eslint and `next build` clean. `npm run test:visual` will show the intended copy changes on `/` and `/auth`, because it compares against the old `public/` pages.
 
 ### 2026-09-24 — Phases 10–13 + end-to-end check (overnight session, continued)
 - **Honesty rules** (the user's hard requirement: no fake numbers, no AI-sounding content):
@@ -196,16 +205,17 @@ The v1 prototype (8-agent DAG, anti-slop engines, static UI + Deno gateway) is d
 ## How to run (current)
 
 ```bash
-# Local services (Postgres+pgvector, Valkey, SearXNG)
-docker compose -f compose.dev.yml --profile test up -d postgres-test valkey searxng
-export DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:54329/deno_dev
-uv run alembic -x url=$DATABASE_URL upgrade head        # once
+# Database = hosted Supabase (DATABASE_URL in .env, session pooler :5432). Local Docker only runs
+# Valkey + SearXNG, plus postgres-test for the integration tests (they drop every table).
+docker compose -f compose.dev.yml up -d valkey searxng
+uv run alembic upgrade head                              # once, and after each new migration
 # API (:8000), worker (runs the graphs), web (:3000)
 uv run uvicorn deno_api.main:app --host 127.0.0.1 --port 8000
 uv run taskiq worker deno_worker.tasks:broker --workers 1
 cd web && npm run dev      # web/.env.local: Supabase URL + publishable key (empty = dev auth)
 # Tests
-uv run pytest              # unit + integration (resets deno_test); live: uv run pytest -m live
+docker compose -f compose.dev.yml --profile test up -d postgres-test   # integration tests only
+uv run pytest              # unit + integration (resets local deno_test; refuses Supabase); live: uv run pytest -m live
 cd web && npm run lint && npx tsc --noEmit && npm run build
 # Evals
 uv run python evals/retrieval/run_eval.py [--live]

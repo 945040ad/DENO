@@ -34,6 +34,8 @@ class AuthUser:
     id: str
     email: str | None
     role: str
+    # Supabase assurance level: "aal2" once a second factor was verified this session.
+    aal: str = "aal1"
 
 
 class SigningKeyResolver(Protocol):
@@ -77,6 +79,7 @@ class TokenVerifier:
             id=str(claims["sub"]),
             email=claims.get("email"),
             role=str(claims.get("role", "authenticated")),
+            aal=str(claims.get("aal", "aal1")),
         )
 
     def _resolve_key(self, token: str, header: dict[str, Any]) -> tuple[Any, str]:

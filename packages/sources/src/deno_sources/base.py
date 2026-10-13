@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 
 from deno_sources.models import Post, SourceName
 from deno_sources.net import Fetcher
+
+# Extra request headers, fetched per request (e.g. a short-lived ID token for a private SearXNG).
+HeaderProvider = Callable[[], Awaitable[Mapping[str, str]]]
 
 
 class SourceClient(ABC):
@@ -27,9 +31,10 @@ class SourceClient(ABC):
 class SearxngClient:
     """Web search through a self-hosted SearXNG (JSON API). Used for `site:` discovery."""
 
-    def __init__(self, fetcher: Fetcher, base_url: str) -> None:
+    def __init__(self, fetcher: Fetcher, base_url: str, headers: HeaderProvider | None = None) -> None:
         self.fetcher = fetcher
         self.base_url = base_url.rstrip("/")
+        self._headers = headers
 
     async def search(self, query: str, *, time_range: str | None = None, pages: int = 1) -> list[dict[str, str]]:
         results: list[dict[str, str]] = []
@@ -38,7 +43,11 @@ class SearxngClient:
             if time_range:
                 params["time_range"] = time_range  # day | week | month | year
             res = await self.fetcher.get(
-                f"{self.base_url}/search", source="searxng", params=params, cache_ttl_s=24 * 3600
+                f"{self.base_url}/search",
+                source="searxng",
+                params=params,
+                headers=await self._headers() if self._headers else None,
+                cache_ttl_s=24 * 3600,
             )
             if res.status != 200:
                 break

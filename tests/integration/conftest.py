@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 
 from deno_core.db.session import build_engine
@@ -38,6 +39,9 @@ async def _reachable() -> bool:
 
 @pytest.fixture(scope="session")
 def migrated_url() -> str:
+    # This fixture drops every table; never let it near the hosted Supabase project.
+    if "supabase." in (make_url(TEST_DATABASE_URL).host or ""):
+        pytest.exit("TEST_DATABASE_URL points at Supabase; tests need a throwaway Postgres", returncode=2)
     if not asyncio.run(_reachable()):
         pytest.skip("test Postgres not reachable (set TEST_DATABASE_URL)")
     cfg = Config(str(ROOT / "alembic.ini"))

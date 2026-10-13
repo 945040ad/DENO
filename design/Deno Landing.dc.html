@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital,wght@0,400;1,400&family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FAF8F3;color:#101613;font-family:'Schibsted Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#101613;text-decoration:none}
+a:hover{color:#0B5E3A}
+*{box-sizing:border-box}
+@keyframes denoPulse{0%{opacity:.35}50%{opacity:1}100%{opacity:.35}}
+@keyframes denoSweep{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}
+@keyframes denoRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes denoDrop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+button,a,input{transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .2s cubic-bezier(.2,.8,.2,1),transform .2s cubic-bezier(.2,.8,.2,1)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</helmet>
+
+<div style="width:100%;max-width:100%;overflow-x:hidden;background:#FAF8F3">
+
+<header style="position:sticky;top:0;z-index:60;background:#FAF8F3;border-bottom:1px solid rgba(16,22,19,.10)">
+  <div style="max-width:1320px;margin:0 auto;padding:12px clamp(16px,3vw,40px);min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap">
+    <a href="#top" style="display:flex;align-items:flex-start;gap:5px;flex:none">
+      <span style="font-family:'DM Serif Display',serif;font-style:italic;font-weight:400;font-size:34px;line-height:.9;letter-spacing:-.02em;color:#101613">deno</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.14em;padding:2px 4px;background:#C6F24E;color:#101613;margin-top:2px">GTM</span>
+    </a>
+    <nav style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;font-size:14.5px;font-weight:500;min-width:0">
+      <button onClick="{{ toggleMenu }}" style="display:flex;align-items:center;gap:6px;background:none;border:0;font:inherit;font-family:'Schibsted Grotesk',sans-serif;color:#101613;cursor:pointer;padding:8px 12px;border-radius:2px;white-space:nowrap" style-hover="background:rgba(16,22,19,.05)">Platform <span style="font-size:9px;opacity:.5">▼</span></button>
+      <a href="#how" style="padding:8px 12px;border-radius:2px;white-space:nowrap" style-hover="background:rgba(16,22,19,.05)">How it works</a>
+      <a href="#risk" style="padding:8px 12px;border-radius:2px;white-space:nowrap" style-hover="background:rgba(16,22,19,.05)">Ban Risk</a>
+      <a href="#receipts" style="padding:8px 12px;border-radius:2px;white-space:nowrap" style-hover="background:rgba(16,22,19,.05)">Receipts</a>
+      <a href="#pricing" style="padding:8px 12px;border-radius:2px;white-space:nowrap" style-hover="background:rgba(16,22,19,.05)">Pricing</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:18px;flex:none;flex-wrap:wrap">
+      <a href="#login" style="font-size:14.5px;font-weight:500;white-space:nowrap">Log in</a>
+      <a href="#start" style="background:#C6F24E;color:#101613;font-size:14.5px;font-weight:700;padding:13px 22px;border:1.5px solid #101613;box-shadow:3px 3px 0 #101613;white-space:nowrap" style-hover="box-shadow:1px 1px 0 #101613;transform:translate(2px,2px)">Validate an idea</a>
+    </div>
+  </div>
+
+  <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="border-top:1px solid rgba(16,22,19,.10);background:#fff;box-shadow:0 24px 48px -24px rgba(16,22,19,.25);animation:denoDrop .22s cubic-bezier(.2,.8,.2,1) both">
+      <div style="max-width:1320px;margin:0 auto;padding:32px clamp(16px,3vw,40px) 40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:36px">
+        <div>
+          <div style="height:120px;background:#DBF2E2;background-image:repeating-linear-gradient(0deg,rgba(11,94,58,.22) 0 1px,transparent 1px 14px),repeating-linear-gradient(90deg,rgba(11,94,58,.22) 0 1px,transparent 1px 14px);border:1px solid rgba(16,22,19,.14);margin-bottom:14px"></div>
+          <div style="font-family:'DM Serif Display',serif;font-size:24px;font-weight:400;margin-bottom:6px">Validation</div>
+          <div style="font-size:13.5px;line-height:1.5;color:#4C5651;margin-bottom:14px">Eight adversarial agents. One Build / Pivot / Kill verdict, with sources.</div>
+          <div style="display:flex;flex-direction:column;gap:9px;font-size:13.5px">
+            <a href="#how">Idea intake →</a><a href="#how">Market sizing →</a><a href="#how">Source ledger →</a>
+          </div>
+        </div>
+        <div>
+          <div style="height:120px;background:#FBE4D6;background-image:repeating-linear-gradient(0deg,rgba(178,64,32,.2) 0 1px,transparent 1px 14px),repeating-linear-gradient(90deg,rgba(178,64,32,.2) 0 1px,transparent 1px 14px);border:1px solid rgba(16,22,19,.14);margin-bottom:14px"></div>
+          <div style="font-family:'DM Serif Display',serif;font-size:24px;font-weight:400;margin-bottom:6px">Distribution</div>
+          <div style="font-size:13.5px;line-height:1.5;color:#4C5651;margin-bottom:14px">Thirty days of posts in your voice, for the communities that will have you.</div>
+          <div style="display:flex;flex-direction:column;gap:9px;font-size:13.5px">
+            <a href="#how">Content calendar →</a><a href="#how">Community radar →</a><a href="#how">Hook library →</a>
+          </div>
+        </div>
+        <div>
+          <div style="height:120px;background:#DCE8F7;background-image:repeating-linear-gradient(0deg,rgba(24,64,128,.2) 0 1px,transparent 1px 14px),repeating-linear-gradient(90deg,rgba(24,64,128,.2) 0 1px,transparent 1px 14px);border:1px solid rgba(16,22,19,.14);margin-bottom:14px"></div>
+          <div style="font-family:'DM Serif Display',serif;font-size:24px;font-weight:400;margin-bottom:6px">Ban Risk</div>
+          <div style="font-size:13.5px;line-height:1.5;color:#4C5651;margin-bottom:14px">A 0–100 score on every draft, with the exact line that will get you filtered.</div>
+          <div style="display:flex;flex-direction:column;gap:9px;font-size:13.5px">
+            <a href="#risk">Anti-slop scrubber →</a><a href="#risk">Density scorer →</a><a href="#risk">Rule conflicts →</a>
+          </div>
+        </div>
+        <div style="background:#F2F0EA;padding:22px;border:1px solid rgba(16,22,19,.12)">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.12em;background:#C6F24E;display:inline-block;padding:3px 6px;margin-bottom:12px">STORY BANK</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:22px;line-height:1.15;font-weight:400;margin-bottom:8px">Your scars are the moat</div>
+          <div style="font-size:13.5px;line-height:1.5;color:#4C5651;margin-bottom:14px">Receipts, metrics and failures no model can invent — injected into every post.</div>
+          <a href="#story" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border-bottom:1.5px solid #101613;padding-bottom:2px">Open Story Bank →</a>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</header>
+
+<section id="top" style="padding:clamp(28px,4vw,52px) clamp(16px,3vw,40px) 0;text-align:center">
+  <a href="#new" style="display:inline-flex;align-items:center;gap:10px;background:#DBF2E2;border:1px solid rgba(11,94,58,.3);padding:8px 14px;font-size:13.5px">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;background:#0B5E3A;color:#fff;padding:3px 6px">NEW</span>
+    <span style="font-weight:600">Ban Risk now covers the 2026 LinkedIn slop filter.</span>
+    <span style="color:#4C5651">See what changed →</span>
+  </a>
+</section>
+
+<section style="padding:clamp(36px,5vw,72px) clamp(16px,3vw,40px) 0;text-align:center;max-width:1180px;margin:0 auto">
+  <h1 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(44px,7.4vw,104px);line-height:.95;letter-spacing:-.025em;margin:0 0 clamp(20px,2.4vw,30px);text-wrap:balance">Know if it's worth building.<br>Then go get your first 100 users.</h1>
+  <p style="max-width:640px;margin:0 auto clamp(28px,3vw,38px);font-size:clamp(16px,1.35vw,18.5px);line-height:1.55;color:#3A443F;text-wrap:pretty">Eight adversarial agents stress-test your idea against real sources. Then Deno writes thirty days of posts in your own voice — every one scored for ban risk before you press send.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;align-items:center">
+    <a href="#start" style="background:#C6F24E;color:#101613;font-size:16px;font-weight:700;padding:17px 30px;border:1.5px solid #101613;box-shadow:4px 4px 0 #101613" style-hover="box-shadow:1px 1px 0 #101613;transform:translate(3px,3px)">Validate an idea — free</a>
+    <a href="#sample" style="background:#FAF8F3;color:#101613;font-size:16px;font-weight:600;padding:17px 30px;border:1.5px solid #101613" style-hover="background:#101613;color:#FAF8F3">Read a sample verdict</a>
+  </div>
+  <p style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.05em;color:#4C5651;margin:22px 0 0">NO CARD · NO AUTO-POSTING · EVER</p>
+</section>
+
+<section style="padding:clamp(44px,5vw,80px) clamp(16px,3vw,40px) 0;max-width:1320px;margin:0 auto">
+  <div style="position:relative;background:#101613;border:1.5px solid #101613;padding:clamp(16px,2.4vw,36px);overflow:hidden">
+    <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(198,242,78,.14) 0 1px,transparent 1px 32px),repeating-linear-gradient(90deg,rgba(198,242,78,.14) 0 1px,transparent 1px 32px)"></div>
+    <div style="position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:clamp(12px,1.6vw,22px);align-items:stretch">
+
+      <div style="background:#FAF8F3;border:1.5px solid #101613;padding:22px;display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;color:#4C5651">AGENT DAG · LIVE</span>
+          <span style="width:8px;height:8px;background:#0B5E3A;border-radius:50%;animation:denoPulse 1.8s infinite"></span>
+        </div>
+        <div style="font-family:'DM Serif Display',serif;font-size:clamp(30px,3.4vw,44px);line-height:1;font-weight:400">BUILD</div>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-family:'DM Serif Display',serif;font-size:30px;font-weight:400;color:#0B5E3A">84%</span>
+          <span style="font-size:12.5px;color:#4C5651">calibrated confidence</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:auto">
+          <div style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px"><span style="color:#0B5E3A">✓</span> Market Researcher</div>
+          <div style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px"><span style="color:#0B5E3A">✓</span> Sizing Engine</div>
+          <div style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px"><span style="color:#0B5E3A">✓</span> Critic (adversarial)</div>
+          <div style="display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#4C5651"><span>⟳</span> Community Mapper</div>
+          <div style="height:6px;background:rgba(16,22,19,.1);margin-top:6px;overflow:hidden"><div style="height:100%;width:76%;background:#C6F24E;border-right:1.5px solid #101613"></div></div>
+        </div>
+      </div>
+
+      <div style="background:#C6F24E;border:1.5px solid #101613;padding:22px;display:flex;flex-direction:column;min-width:0">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;margin-bottom:14px">DAY 06 · r/SIDEPROJECT</span>
+        <div style="font-family:'DM Serif Display',serif;font-size:clamp(22px,2.2vw,28px);line-height:1.1;font-weight:400;margin-bottom:12px">I spent $14,000 building a feature nobody used. Here's the teardown.</div>
+        <div style="font-size:13px;line-height:1.5;margin-bottom:16px">Pulled from your Story Bank · 1 metric, 1 scar, 0 outbound links.</div>
+        <div style="margin-top:auto;background:#101613;color:#FAF8F3;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.1em">BAN RISK</span>
+          <span style="font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;color:#C6F24E">91</span>
+        </div>
+      </div>
+
+      <div style="position:relative;border:1.5px solid #101613;background:#DCE8F7;min-height:280px;overflow:hidden;min-width:0">
+        <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(24,64,128,.26) 0 1px,transparent 1px 18px),repeating-linear-gradient(90deg,rgba(24,64,128,.26) 0 1px,transparent 1px 18px)"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;letter-spacing:.06em;color:#1A3C6B;background:rgba(250,248,243,.9);padding:10px 12px;border:1px dashed rgba(24,64,128,.5)">DROP IMAGE<br>founder portrait,<br>cut-out on grid</span>
+        </div>
+        <div style="position:absolute;left:14px;bottom:14px;background:#FAF8F3;border:1.5px solid #101613;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700">u/yourhandle · 1.2k karma</div>
+      </div>
+
+      <div style="background:#FBE4D6;border:1.5px solid #101613;padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em">SLOP SCRUB · 18 RULES</span>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="background:#FAF8F3;border:1px solid rgba(16,22,19,.18);padding:9px 11px;font-size:12.5px"><span style="text-decoration:line-through;color:#8A5A46">In today's fast-paced world</span> −6</div>
+          <div style="background:#FAF8F3;border:1px solid rgba(16,22,19,.18);padding:9px 11px;font-size:12.5px"><span style="text-decoration:line-through;color:#8A5A46">It's not just X — it's Y</span> −9</div>
+          <div style="background:#FAF8F3;border:1px solid rgba(16,22,19,.18);padding:9px 11px;font-size:12.5px"><span style="text-decoration:line-through;color:#8A5A46">Let's dive in 🚀</span> −11</div>
+        </div>
+        <div style="margin-top:auto;font-size:12.5px;line-height:1.5">Every deduction ships with the rewrite that fixes it.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section id="how" style="padding:clamp(72px,9vw,140px) clamp(16px,3vw,40px) 0;max-width:1320px;margin:0 auto;text-align:center">
+  <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.12em;background:#FBE4D6;padding:5px 9px">THE TWO WALLS</span>
+  <h2 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(34px,4.8vw,66px);line-height:1.02;letter-spacing:-.02em;margin:22px auto clamp(18px,2vw,26px);max-width:900px;text-wrap:balance">Building got cheap. Being believed got expensive.</h2>
+  <p style="max-width:660px;margin:0 auto clamp(34px,4vw,56px);font-size:clamp(15.5px,1.3vw,17.5px);line-height:1.6;color:#3A443F;text-wrap:pretty">Every unfunded founder hits the same two walls in the same order. Deno is built as two stages, in that order — and the first one costs nothing.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:clamp(14px,1.6vw,22px);text-align:left">
+    <div style="border:1.5px solid #101613;background:#DBF2E2;display:flex;flex-direction:column">
+      <div style="padding:20px 22px 16px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1.5px solid #101613">
+        <span style="font-family:'DM Serif Display',serif;font-size:clamp(26px,2.6vw,34px);font-weight:400">Stage 1 — Validation</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;background:#101613;color:#C6F24E;padding:4px 7px;white-space:nowrap">FREE</span>
+      </div>
+      <div style="height:190px;position:relative;overflow:hidden;border-bottom:1.5px solid #101613">
+        <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(11,94,58,.3) 0 1px,transparent 1px 16px),repeating-linear-gradient(90deg,rgba(11,94,58,.3) 0 1px,transparent 1px 16px)"></div>
+        <div style="position:absolute;left:24px;top:28px;width:96px;height:64px;background:#0B5E3A"></div>
+        <div style="position:absolute;left:96px;top:78px;width:120px;height:40px;background:#C6F24E;border:1.5px solid #101613"></div>
+        <div style="position:absolute;right:28px;top:44px;width:74px;height:74px;border:1.5px solid #101613;background:#FAF8F3"></div>
+        <div style="position:absolute;right:40px;bottom:22px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;color:#0B5E3A">TAM / SAM / SOM</div>
+      </div>
+      <div style="padding:20px 22px 24px;display:flex;flex-direction:column;gap:12px;flex:1">
+        <p style="margin:0;font-size:14.5px;line-height:1.55;color:#26302B">Paste the idea or a URL. Intake, Market, Sizing and Risk run concurrently, a Critic agent attacks the result, and a bounded refiner loop settles it. Nothing without a clickable source survives.</p>
+        <a href="#start" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border-bottom:1.5px solid #101613;align-self:flex-start;margin-top:auto">Run the DAG →</a>
+      </div>
+    </div>
+
+    <div style="border:1.5px solid #101613;background:#FBE4D6;display:flex;flex-direction:column">
+      <div style="padding:20px 22px 16px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1.5px solid #101613">
+        <span style="font-family:'DM Serif Display',serif;font-size:clamp(26px,2.6vw,34px);font-weight:400">Stage 2 — Distribution</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;background:#101613;color:#FAF8F3;padding:4px 7px;white-space:nowrap">$20/MO</span>
+      </div>
+      <div style="height:190px;position:relative;overflow:hidden;border-bottom:1.5px solid #101613">
+        <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(178,64,32,.28) 0 1px,transparent 1px 16px),repeating-linear-gradient(90deg,rgba(178,64,32,.28) 0 1px,transparent 1px 16px)"></div>
+        <div style="position:absolute;left:22px;top:26px;right:22px;height:26px;background:#FAF8F3;border:1.5px solid #101613"></div>
+        <div style="position:absolute;left:22px;top:70px;width:44%;height:26px;background:#D93A22"></div>
+        <div style="position:absolute;left:22px;top:110px;width:66%;height:26px;background:#FAF8F3;border:1.5px solid #101613"></div>
+        <div style="position:absolute;right:26px;bottom:20px;width:54px;height:54px;border-radius:50%;background:#D93A22"></div>
+      </div>
+      <div style="padding:20px 22px 24px;display:flex;flex-direction:column;gap:12px;flex:1">
+        <p style="margin:0;font-size:14.5px;line-height:1.55;color:#3A2A22">A thirty-day calendar with irregular cadence, a 9:1 value-to-promo ratio, and archetypes each community actually tolerates. Written against your stylometric fingerprint, not a house voice.</p>
+        <a href="#start" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border-bottom:1.5px solid #101613;align-self:flex-start;margin-top:auto">See the calendar →</a>
+      </div>
+    </div>
+
+    <div style="border:1.5px solid #101613;background:#DCE8F7;display:flex;flex-direction:column">
+      <div style="padding:20px 22px 16px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1.5px solid #101613">
+        <span style="font-family:'DM Serif Display',serif;font-size:clamp(26px,2.6vw,34px);font-weight:400">The guardrail</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;background:#101613;color:#FAF8F3;padding:4px 7px;white-space:nowrap">0–100</span>
+      </div>
+      <div style="height:190px;position:relative;overflow:hidden;border-bottom:1.5px solid #101613">
+        <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(24,64,128,.26) 0 1px,transparent 1px 16px),repeating-linear-gradient(90deg,rgba(24,64,128,.26) 0 1px,transparent 1px 16px)"></div>
+        <div style="position:absolute;inset:26px;background:#FAF8F3;border:1.5px solid #101613;display:flex;align-items:center;justify-content:center;gap:14px">
+          <span style="font-family:'DM Serif Display',serif;font-size:58px;font-weight:400;line-height:1">88</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;line-height:1.5;letter-spacing:.08em;color:#1A3C6B">SAFE<br>TO<br>SEND</span>
+        </div>
+      </div>
+      <div style="padding:20px 22px 24px;display:flex;flex-direction:column;gap:12px;flex:1">
+        <p style="margin:0;font-size:14.5px;line-height:1.55;color:#1E2A38">Eighteen structural slop patterns, 2026 vocabulary density tells, and live community rule conflicts — itemised as deductions with fixes, before your account is on the line.</p>
+        <a href="#risk" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border-bottom:1.5px solid #101613;align-self:flex-start;margin-top:auto">Open the Studio →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding:clamp(72px,9vw,140px) clamp(16px,3vw,40px) 0;max-width:1320px;margin:0 auto">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:clamp(24px,3vw,56px);align-items:start">
+    <div>
+      <h2 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(32px,4.2vw,58px);line-height:1.03;letter-spacing:-.02em;margin:0 0 18px;text-wrap:balance">Why founders with no audience start here</h2>
+      <p style="margin:0 0 28px;font-size:clamp(15px,1.25vw,17px);line-height:1.6;color:#3A443F;max-width:460px;text-wrap:pretty">You don't need another writing assistant. You need to know the idea holds up, and then not get filtered out of the only channels you can afford.</p>
+      <div style="border-top:1px solid rgba(16,22,19,.16)">
+        <div onClick="{{ pick0 }}" style="border-bottom:1px solid rgba(16,22,19,.16);padding:20px 0;cursor:pointer;display:flex;align-items:baseline;justify-content:space-between;gap:16px" style-hover="background:rgba(16,22,19,.03)">
+          <span style="font-family:'DM Serif Display',serif;font-size:clamp(20px,1.9vw,25px);font-weight:400;line-height:1.15">Eight agents that argue with each other</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#4C5651">01</span>
+        </div>
+        <sc-if value="{{ open0 }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#DBF2E2;border-bottom:1px solid rgba(16,22,19,.16);padding:20px 22px;animation:denoRise .26s cubic-bezier(.2,.8,.2,1) both">
+            <p style="margin:0 0 14px;font-size:14.5px;line-height:1.6;color:#26302B">Intake, Market, Sizing and Risk run concurrently. Then a Critic agent tries to kill the thesis, and a bounded refiner loop answers it — maximum three rounds, graceful on partial failure. You read the disagreement, not a summary.</p>
+            <a href="#start" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border-bottom:1.5px solid #101613">Explore validation →</a>
+          </div>
+        </sc-if>
+
+        <div onClick="{{ pick1 }}" style="border-bottom:1px solid rgba(16,22,19,.16);padding:20px 0;cursor:pointer;display:flex;align-items:baseline;justify-content:space-between;gap:16px" style-hover="background:rgba(16,22,19,.03)">
+          <span style="font-family:'DM Serif Display',serif;font-size:clamp(20px,1.9vw,25px);font-weight:400;line-height:1.15">A verdict that says Kill when it means Kill</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#4C5651">02</span>
+        </div>
+        <sc-if value="{{ open1 }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FBE4D6;border-bottom:1px solid rgba(16,22,19,.16);padding:20px 22px;animation:denoRise .26s cubic-bezier(.2,.8,.2,1) both">
+            <p style="margin:0 0 14px;font-size:14.5px;line-height:1.6;color:#3A2A22">BUILD, PIVOT or KILL with calibrated confidence and the top three arguments on each side. Bottom-up TAM/SAM/SOM you can audit line by line. Claims without a retrievable source are dropped, never guessed.</p>
+            <a href="#sample" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border-bottom:1.5px solid #101613">Read a sample verdict →</a>
+          </div>
+        </sc-if>
+
+        <div onClick="{{ pick2 }}" style="border-bottom:1px solid rgba(16,22,19,.16);padding:20px 0;cursor:pointer;display:flex;align-items:baseline;justify-content:space-between;gap:16px" style-hover="background:rgba(16,22,19,.03)">
+          <span style="font-family:'DM Serif Display',serif;font-size:clamp(20px,1.9vw,25px);font-weight:400;line-height:1.15">Ban Risk Score on every single draft</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#4C5651">03</span>
+        </div>
+        <sc-if value="{{ open2 }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#DCE8F7;border-bottom:1px solid rgba(16,22,19,.16);padding:20px 22px;animation:denoRise .26s cubic-bezier(.2,.8,.2,1) both">
+            <p style="margin:0 0 14px;font-size:14.5px;line-height:1.6;color:#1E2A38">One number, 0–100, recomputed as you type. Below threshold you get itemised deductions: which slop pattern, which density tell, which community rule — and the rewrite that clears it.</p>
+            <a href="#risk" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border-bottom:1.5px solid #101613">Open the Studio →</a>
+          </div>
+        </sc-if>
+
+        <div onClick="{{ pick3 }}" style="border-bottom:1px solid rgba(16,22,19,.16);padding:20px 0;cursor:pointer;display:flex;align-items:baseline;justify-content:space-between;gap:16px" style-hover="background:rgba(16,22,19,.03)">
+          <span style="font-family:'DM Serif Display',serif;font-size:clamp(20px,1.9vw,25px);font-weight:400;line-height:1.15">A Story Bank no model could invent</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#4C5651">04</span>
+        </div>
+        <sc-if value="{{ open3 }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FBF1C7;border-bottom:1px solid rgba(16,22,19,.16);padding:20px 22px;animation:denoRise .26s cubic-bezier(.2,.8,.2,1) both">
+            <p style="margin:0 0 14px;font-size:14.5px;line-height:1.6;color:#33301E">Scars, metrics, turning points and defended opinions, stored once. Every post pulls a real receipt, which is what defeats the portability test — the reason generic AI posts read as generic.</p>
+            <a href="#story" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border-bottom:1.5px solid #101613">Build your bank →</a>
+          </div>
+        </sc-if>
+
+        <div onClick="{{ pick4 }}" style="border-bottom:1px solid rgba(16,22,19,.16);padding:20px 0;cursor:pointer;display:flex;align-items:baseline;justify-content:space-between;gap:16px" style-hover="background:rgba(16,22,19,.03)">
+          <span style="font-family:'DM Serif Display',serif;font-size:clamp(20px,1.9vw,25px);font-weight:400;line-height:1.15">It never posts for you</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#4C5651">05</span>
+        </div>
+        <sc-if value="{{ open4 }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#F2F0EA;border-bottom:1px solid rgba(16,22,19,.16);padding:20px 22px;animation:denoRise .26s cubic-bezier(.2,.8,.2,1) both">
+            <p style="margin:0 0 14px;font-size:14.5px;line-height:1.6;color:#26302B">No automation, no vote rings, no DMs. Copy, deep-link, send. It's the only publishing model that survives platform terms of service — and the only one that keeps your account.</p>
+            <a href="#trust" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border-bottom:1.5px solid #101613">Read the compliance stance →</a>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <div style="border:1.5px solid #101613;background:#101613;padding:clamp(12px,1.4vw,20px);min-width:0">
+      <div style="background:#FAF8F3;border:1.5px solid #101613;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1.5px solid #101613;background:#F2F0EA">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.1em">{{ panelLabel }}</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#4C5651">deno/workspace</span>
+        </div>
+        <div style="padding:20px 18px;display:flex;flex-direction:column;gap:14px;min-height:420px">
+          <div style="font-family:'DM Serif Display',serif;font-size:clamp(24px,2.4vw,32px);line-height:1.08;font-weight:400">{{ panelTitle }}</div>
+          <div style="font-size:14px;line-height:1.6;color:#3A443F">{{ panelBody }}</div>
+          <div style="display:flex;flex-direction:column;gap:9px;margin-top:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid rgba(16,22,19,.18);padding:11px 13px;font-family:'JetBrains Mono',monospace;font-size:11.5px"><span>{{ row1 }}</span><span style="font-weight:700">{{ val1 }}</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid rgba(16,22,19,.18);padding:11px 13px;font-family:'JetBrains Mono',monospace;font-size:11.5px"><span>{{ row2 }}</span><span style="font-weight:700">{{ val2 }}</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid rgba(16,22,19,.18);padding:11px 13px;font-family:'JetBrains Mono',monospace;font-size:11.5px"><span>{{ row3 }}</span><span style="font-weight:700">{{ val3 }}</span></div>
+          </div>
+          <div style="margin-top:auto;position:relative;height:132px;border:1.5px solid #101613;overflow:hidden;background:#DBF2E2">
+            <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(11,94,58,.26) 0 1px,transparent 1px 14px),repeating-linear-gradient(90deg,rgba(11,94,58,.26) 0 1px,transparent 1px 14px)"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;background:rgba(250,248,243,.92);border:1px dashed rgba(11,94,58,.5);padding:8px 10px">DROP IMAGE · product screenshot</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="risk" style="padding:clamp(72px,9vw,140px) clamp(16px,3vw,40px) 0;max-width:1320px;margin:0 auto">
+  <div style="border:1.5px solid #101613;background:#101613;color:#FAF8F3;position:relative;overflow:hidden">
+    <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(198,242,78,.1) 0 1px,transparent 1px 28px),repeating-linear-gradient(90deg,rgba(198,242,78,.1) 0 1px,transparent 1px 28px)"></div>
+    <div style="position:relative;padding:clamp(28px,4vw,64px);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:clamp(24px,3vw,52px);align-items:center">
+      <div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;letter-spacing:.12em;background:#C6F24E;color:#101613;padding:5px 9px">BAN RISK STUDIO</span>
+        <h2 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(32px,4.2vw,58px);line-height:1.03;letter-spacing:-.02em;margin:22px 0 18px;text-wrap:balance">Reddit blocks ~25,000 spam posts a day. Don't be one.</h2>
+        <p style="margin:0 0 26px;font-size:clamp(15px,1.25vw,17px);line-height:1.6;color:#C9D2CD;max-width:480px;text-wrap:pretty">Paste any draft — ours or yours. The scrubber runs eighteen structural slop patterns, the density scorer checks 2026 vocabulary tells, and the rule engine checks the community you're aiming at. You get one number and a fix list.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          <a href="#start" style="background:#C6F24E;color:#101613;font-size:15.5px;font-weight:700;padding:15px 26px;border:1.5px solid #C6F24E" style-hover="background:#FAF8F3;border-color:#FAF8F3">Score a draft free</a>
+          <a href="#taxonomy" style="color:#FAF8F3;font-size:15.5px;font-weight:600;padding:15px 26px;border:1.5px solid rgba(250,248,243,.4)" style-hover="border-color:#FAF8F3">See all 18 patterns</a>
+        </div>
+      </div>
+      <div style="background:#FAF8F3;color:#101613;border:1.5px solid #C6F24E;min-width:0">
+        <div style="display:flex;align-items:stretch;border-bottom:1.5px solid #101613">
+          <div style="flex:none;width:clamp(110px,14vw,150px);background:#C6F24E;border-right:1.5px solid #101613;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px 10px">
+            <span style="font-family:'DM Serif Display',serif;font-size:clamp(46px,6vw,72px);font-weight:400;line-height:.9">{{ score }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;margin-top:6px;text-align:center">BAN RISK<br>SCORE</span>
+          </div>
+          <div style="padding:16px 18px;display:flex;flex-direction:column;justify-content:center;gap:8px;min-width:0">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#4C5651">TARGET · r/SAAS · LLM SPAM FILTER: STRICT</span>
+            <span style="font-size:14.5px;font-weight:600;line-height:1.4">{{ verdictLine }}</span>
+          </div>
+        </div>
+        <div style="padding:16px 18px;border-bottom:1.5px solid rgba(16,22,19,.15)">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#4C5651;margin-bottom:10px">ITEMISED DEDUCTIONS</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;gap:10px;align-items:flex-start;background:#FBE4D6;border:1px solid rgba(16,22,19,.16);padding:10px 12px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;flex:none;color:#A8321C">−11</span>
+              <span style="font-size:13px;line-height:1.45;min-width:0">Rule of three cadence ×4 · <span style="color:#4C5651">break two of the triads into single clauses</span></span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;background:#FBE4D6;border:1px solid rgba(16,22,19,.16);padding:10px 12px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;flex:none;color:#A8321C">−7</span>
+              <span style="font-size:13px;line-height:1.45;min-width:0">Em-dash density 4.1/100w · <span style="color:#4C5651">2026 tell, cap at 1.5</span></span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;background:#FBF1C7;border:1px solid rgba(16,22,19,.16);padding:10px 12px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;flex:none;color:#7A6412">−4</span>
+              <span style="font-size:13px;line-height:1.45;min-width:0">Outbound link in body · <span style="color:#4C5651">move to first comment</span></span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;background:#DBF2E2;border:1px solid rgba(16,22,19,.16);padding:10px 12px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;flex:none;color:#0B5E3A">PASS</span>
+              <span style="font-size:13px;line-height:1.45;min-width:0">Voice distance 0.31 · <span style="color:#4C5651">within your fingerprint</span></span>
+            </div>
+          </div>
+        </div>
+        <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#4C5651">🔒 HUMAN-SEND ONLY</span>
+          <div style="display:flex;gap:8px">
+            <span style="font-size:12.5px;font-weight:600;border:1.5px solid #101613;padding:8px 14px">Copy post</span>
+            <span style="font-size:12.5px;font-weight:700;background:#101613;color:#FAF8F3;padding:8px 14px">Open Reddit ↗</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="receipts" style="padding:clamp(72px,9vw,140px) clamp(16px,3vw,40px) 0;max-width:1320px;margin:0 auto;text-align:center">
+  <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.12em;background:#FBF1C7;padding:5px 9px">RECEIPTS, NOT LOGOS</span>
+  <h2 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(32px,4.6vw,62px);line-height:1.03;letter-spacing:-.02em;margin:22px auto 16px;max-width:820px;text-wrap:balance">We have no customer logos yet. Here's what we do have.</h2>
+  <p style="max-width:600px;margin:0 auto clamp(32px,4vw,48px);font-size:clamp(15px,1.25vw,17px);line-height:1.6;color:#3A443F;text-wrap:pretty">Putting fake enterprise badges on a pre-launch page is exactly the behaviour Deno scores you down for. So: the real numbers, and a space for the first honest testimonial.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:clamp(12px,1.4vw,18px);text-align:left">
+    <div style="border:1.5px solid #101613;background:#DBF2E2;padding:22px;display:flex;flex-direction:column;gap:8px">
+      <span style="font-family:'DM Serif Display',serif;font-size:clamp(38px,4.4vw,56px);font-weight:400;line-height:.95">8</span>
+      <span style="font-size:13.5px;line-height:1.45;color:#26302B">agents in the adversarial validation DAG, one of them hostile by design</span>
+    </div>
+    <div style="border:1.5px solid #101613;background:#FBE4D6;padding:22px;display:flex;flex-direction:column;gap:8px">
+      <span style="font-family:'DM Serif Display',serif;font-size:clamp(38px,4.4vw,56px);font-weight:400;line-height:.95">18</span>
+      <span style="font-size:13.5px;line-height:1.45;color:#3A2A22">structural slop patterns detected and rewritten, not just flagged</span>
+    </div>
+    <div style="border:1.5px solid #101613;background:#DCE8F7;padding:22px;display:flex;flex-direction:column;gap:8px">
+      <span style="font-family:'DM Serif Display',serif;font-size:clamp(38px,4.4vw,56px);font-weight:400;line-height:.95">30</span>
+      <span style="font-size:13.5px;line-height:1.45;color:#1E2A38">communities mapped with live rules, karma gates and promo ratios</span>
+    </div>
+    <div style="border:1.5px solid #101613;background:#C6F24E;padding:22px;display:flex;flex-direction:column;gap:8px">
+      <span style="font-family:'DM Serif Display',serif;font-size:clamp(38px,4.4vw,56px);font-weight:400;line-height:.95">0</span>
+      <span style="font-size:13.5px;line-height:1.45">posts, votes or DMs sent automatically. A human always presses send.</span>
+    </div>
+  </div>
+  <div style="margin-top:clamp(12px,1.4vw,18px);display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(12px,1.4vw,18px);text-align:left">
+    <div style="border:1.5px dashed rgba(16,22,19,.4);background:#F2F0EA;padding:26px;display:flex;flex-direction:column;gap:12px;min-height:180px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#4C5651">TESTIMONIAL SLOT 01</span>
+      <span style="font-family:'DM Serif Display',serif;font-size:22px;line-height:1.2;font-weight:400;color:#4C5651">Reserved for the first founder who ships with Deno.</span>
+      <span style="font-size:13px;color:#4C5651;margin-top:auto">Beta cohort opens with 25 seats.</span>
+    </div>
+    <div style="border:1.5px solid #101613;background:#FAF8F3;padding:26px;display:flex;flex-direction:column;gap:12px;min-height:180px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#4C5651">BUILT IN PUBLIC</span>
+      <span style="font-size:15px;line-height:1.55;color:#26302B">Every verdict Deno produces is auditable: 21 unit tests across the scoring engines, and a source ledger with retrieval timestamps on every claim.</span>
+      <a href="#changelog" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;border-bottom:1.5px solid #101613;align-self:flex-start;margin-top:auto">Read the changelog →</a>
+    </div>
+  </div>
+</section>
+
+<section id="pricing" style="padding:clamp(72px,9vw,140px) clamp(16px,3vw,40px) 0;max-width:1000px;margin:0 auto">
+  <div style="text-align:center;margin-bottom:clamp(28px,3.4vw,44px)">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.12em;background:#DCE8F7;padding:5px 9px">PRICING</span>
+    <h2 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(32px,4.6vw,62px);line-height:1.03;letter-spacing:-.02em;margin:22px 0 0;text-wrap:balance">Validation is free. Forever.</h2>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(14px,1.6vw,20px)">
+    <div style="border:1.5px solid #101613;background:#FAF8F3;padding:28px;display:flex;flex-direction:column;gap:16px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em">STAGE 1</span>
+      <span style="font-family:'DM Serif Display',serif;font-size:52px;font-weight:400;line-height:.95">$0</span>
+      <div style="display:flex;flex-direction:column;gap:9px;font-size:14px;line-height:1.5">
+        <span>8-agent validation, unlimited ideas</span>
+        <span>Build / Pivot / Kill with confidence</span>
+        <span>Bottom-up TAM / SAM / SOM</span>
+        <span>Source ledger with timestamps</span>
+        <span>Community radar, 30+ mapped</span>
+      </div>
+      <a href="#start" style="margin-top:auto;text-align:center;border:1.5px solid #101613;padding:14px;font-size:15px;font-weight:700" style-hover="background:#101613;color:#FAF8F3">Start validating</a>
+    </div>
+    <div style="border:1.5px solid #101613;background:#C6F24E;padding:28px;display:flex;flex-direction:column;gap:16px;box-shadow:6px 6px 0 #101613">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em">STAGE 2</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;background:#101613;color:#C6F24E;padding:3px 6px">25 BETA SEATS</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="font-family:'DM Serif Display',serif;font-size:52px;font-weight:400;line-height:.95">$20</span>
+        <span style="font-size:14px;font-weight:600">/month</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:9px;font-size:14px;line-height:1.5">
+        <span>Everything in Stage 1</span>
+        <span>30-day voice-matched calendar</span>
+        <span>Ban Risk Score on every draft</span>
+        <span>Anti-slop scrubber + rewrites</span>
+        <span>Story Bank &amp; stylometric fingerprint</span>
+        <span>Hook library, video scripts, reply drafts</span>
+      </div>
+      <a href="#start" style="margin-top:auto;text-align:center;background:#101613;color:#FAF8F3;padding:14px;font-size:15px;font-weight:700" style-hover="background:#FAF8F3;color:#101613">Claim a beta seat</a>
+    </div>
+  </div>
+</section>
+
+<section id="faq" style="padding:clamp(72px,9vw,140px) clamp(16px,3vw,40px) 0;max-width:1320px;margin:0 auto">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(24px,3vw,48px);align-items:start">
+    <h2 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(30px,3.6vw,48px);line-height:1.05;letter-spacing:-.02em;margin:0;text-wrap:balance">Frequently asked, honestly answered</h2>
+    <div style="border:1.5px solid #D93A22;background:#FDEDE8;min-width:0">
+      <div onClick="{{ faq0 }}" style="border-bottom:1.5px solid #D93A22;padding:20px 22px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <span style="font-family:'DM Serif Display',serif;font-size:clamp(18px,1.7vw,23px);font-weight:400;line-height:1.2">Will this get my Reddit account banned?</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:14px;flex:none">{{ f0 }}</span>
+      </div>
+      <sc-if value="{{ fo0 }}" hint-placeholder-val="{{ true }}">
+        <div style="border-bottom:1.5px solid #D93A22;padding:0 22px 20px;animation:denoRise .26s cubic-bezier(.2,.8,.2,1) both;font-size:14.5px;line-height:1.6;color:#3A2A22">That's the entire point of the product. Deno never automates a single action, checks each community's current rules and promo ratio before drafting, and refuses to ship a post that hard-violates one. The Ban Risk Score is the number you check before you send.</div>
+      </sc-if>
+      <div onClick="{{ faq1 }}" style="border-bottom:1.5px solid #D93A22;padding:20px 22px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <span style="font-family:'DM Serif Display',serif;font-size:clamp(18px,1.7vw,23px);font-weight:400;line-height:1.2">Is it just ChatGPT with a prompt?</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:14px;flex:none">{{ f1 }}</span>
+      </div>
+      <sc-if value="{{ fo1 }}" hint-placeholder-val="{{ false }}">
+        <div style="border-bottom:1.5px solid #D93A22;padding:0 22px 20px;animation:denoRise .26s cubic-bezier(.2,.8,.2,1) both;font-size:14.5px;line-height:1.6;color:#3A2A22">No. The scoring engines are deterministic code, not prompts: an 18-pattern structural detector, a vocabulary density scorer, and Burrows' Delta stylometry measuring the distance between a draft and your own writing. The model drafts; the maths decides whether it ships.</div>
+      </sc-if>
+      <div onClick="{{ faq2 }}" style="border-bottom:1.5px solid #D93A22;padding:20px 22px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <span style="font-family:'DM Serif Display',serif;font-size:clamp(18px,1.7vw,23px);font-weight:400;line-height:1.2">What if the verdict is Kill?</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:14px;flex:none">{{ f2 }}</span>
+      </div>
+      <sc-if value="{{ fo2 }}" hint-placeholder-val="{{ false }}">
+        <div style="border-bottom:1.5px solid #D93A22;padding:0 22px 20px;animation:denoRise .26s cubic-bezier(.2,.8,.2,1) both;font-size:14.5px;line-height:1.6;color:#3A2A22">Then you saved a year. You get the Critic's full argument with sources, the pivot vectors that scored highest, and the option to re-run against a reframed idea. A tool that never says Kill is a tool that tells you nothing.</div>
+      </sc-if>
+      <div onClick="{{ faq3 }}" style="border-bottom:1.5px solid #D93A22;padding:20px 22px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <span style="font-family:'DM Serif Display',serif;font-size:clamp(18px,1.7vw,23px);font-weight:400;line-height:1.2">Do I need an existing audience?</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:14px;flex:none">{{ f3 }}</span>
+      </div>
+      <sc-if value="{{ fo3 }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:0 22px 20px;animation:denoRise .26s cubic-bezier(.2,.8,.2,1) both;font-size:14.5px;line-height:1.6;color:#3A2A22">No — zero followers is the assumed starting state. The calendar is built around other people's communities, which is where the first hundred users actually come from when nobody knows your name yet.</div>
+      </sc-if>
+    </div>
+  </div>
+</section>
+
+<section id="start" style="padding:clamp(72px,9vw,140px) clamp(16px,3vw,40px) clamp(72px,9vw,120px);max-width:1320px;margin:0 auto">
+  <div style="border:1.5px solid #101613;background:#C6F24E;position:relative;overflow:hidden">
+    <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(16,22,19,.12) 0 1px,transparent 1px 26px),repeating-linear-gradient(90deg,rgba(16,22,19,.12) 0 1px,transparent 1px 26px)"></div>
+    <div style="position:relative;padding:clamp(36px,5vw,84px);text-align:center">
+      <h2 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(36px,5.6vw,82px);line-height:.98;letter-spacing:-.025em;margin:0 auto 20px;max-width:900px;text-wrap:balance">Find out tonight. Post on Monday.</h2>
+      <p style="max-width:560px;margin:0 auto 30px;font-size:clamp(15px,1.3vw,17.5px);line-height:1.6;color:#1E2A22;text-wrap:pretty">Paste your idea. Get the verdict, the sources, and the communities. Free, no card, and no posting on your behalf — ever.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center">
+        <a href="#signup" style="background:#101613;color:#FAF8F3;font-size:16px;font-weight:700;padding:18px 34px;border:1.5px solid #101613" style-hover="background:#FAF8F3;color:#101613">Validate an idea — free</a>
+        <a href="#sample" style="background:transparent;color:#101613;font-size:16px;font-weight:600;padding:18px 34px;border:1.5px solid #101613" style-hover="background:#FAF8F3">Read a sample verdict</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer id="trust" style="background:#101613;color:#FAF8F3;position:relative;overflow:hidden">
+  <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(250,248,243,.06) 0 1px,transparent 1px 30px),repeating-linear-gradient(90deg,rgba(250,248,243,.06) 0 1px,transparent 1px 30px)"></div>
+  <div style="position:relative;max-width:1320px;margin:0 auto;padding:clamp(44px,5vw,76px) clamp(16px,3vw,40px)">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:clamp(24px,3vw,44px);padding-bottom:clamp(32px,4vw,56px)">
+      <div>
+        <div style="display:flex;align-items:flex-start;gap:5px;margin-bottom:14px">
+          <span style="font-family:'DM Serif Display',serif;font-style:italic;font-weight:400;font-size:32px;line-height:.9;color:#FAF8F3">deno</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.14em;padding:2px 4px;background:#C6F24E;color:#101613;margin-top:2px">GTM</span>
+        </div>
+        <p style="margin:0;font-size:13px;line-height:1.6;color:#9AA5A0;max-width:220px">The founder go-to-market workspace. Validate, then distribute — without getting filtered.</p>
+      </div>
+      <div>
+        <div style="font-family:'DM Serif Display',serif;font-size:19px;font-weight:400;padding-bottom:12px;border-bottom:1px solid rgba(250,248,243,.2);margin-bottom:14px">Platform</div>
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px">
+          <a href="#how" style="color:#C9D2CD" style-hover="color:#C6F24E">Validation DAG</a>
+          <a href="#how" style="color:#C9D2CD" style-hover="color:#C6F24E">Market sizing</a>
+          <a href="#how" style="color:#C9D2CD" style-hover="color:#C6F24E">Source ledger</a>
+          <a href="#how" style="color:#C9D2CD" style-hover="color:#C6F24E">Community radar</a>
+          <a href="#how" style="color:#C9D2CD" style-hover="color:#C6F24E">Content calendar</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-family:'DM Serif Display',serif;font-size:19px;font-weight:400;padding-bottom:12px;border-bottom:1px solid rgba(250,248,243,.2);margin-bottom:14px">Safety</div>
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px">
+          <a href="#risk" style="color:#C9D2CD" style-hover="color:#C6F24E">Ban Risk Score</a>
+          <a href="#risk" style="color:#C9D2CD" style-hover="color:#C6F24E">Anti-slop taxonomy</a>
+          <a href="#risk" style="color:#C9D2CD" style-hover="color:#C6F24E">Density heuristics</a>
+          <a href="#risk" style="color:#C9D2CD" style-hover="color:#C6F24E">Stylometry method</a>
+          <a href="#trust" style="color:#C9D2CD" style-hover="color:#C6F24E">Human-send policy</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-family:'DM Serif Display',serif;font-size:19px;font-weight:400;padding-bottom:12px;border-bottom:1px solid rgba(250,248,243,.2);margin-bottom:14px">Company</div>
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px">
+          <a href="#about" style="color:#C9D2CD" style-hover="color:#C6F24E">About</a>
+          <a href="#changelog" style="color:#C9D2CD" style-hover="color:#C6F24E">Changelog</a>
+          <a href="#pricing" style="color:#C9D2CD" style-hover="color:#C6F24E">Pricing</a>
+          <a href="#docs" style="color:#C9D2CD" style-hover="color:#C6F24E">Docs</a>
+          <a href="#contact" style="color:#C9D2CD" style-hover="color:#C6F24E">Contact</a>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid rgba(250,248,243,.2);padding-top:22px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;color:#9AA5A0">
+      <span>© 2026 DENO GTM · BUILT FOR FOUNDERS WITH NO AUDIENCE</span>
+      <span>NEVER POSTS · NEVER VOTES · NEVER DMs</span>
+    </div>
+  </div>
+</footer>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;demoScore&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:88,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Ban Risk demo&quot;,&quot;unit&quot;:&quot;pts&quot;}}">
+class Component extends DCLogic {
+  state = { active: 0, faq: 0, menuOpen: false };
+
+  panels = [
+    { label: "VALIDATION · DAG", title: "Eight agents, one of them hostile", body: "Concurrent intake, market, sizing and risk agents. A Critic that attacks the thesis. A refiner loop bounded at three rounds so it terminates.", rows: [["CRITIC ROUNDS", "3"], ["SOURCED CLAIMS", "24"], ["DROPPED / UNSOURCED", "6"]] },
+    { label: "VERDICT · REPORT", title: "Build, Pivot or Kill — with the receipts", body: "Bottom-up sizing you can audit, the top three arguments on each side, and a clickable source ledger with retrieval timestamps.", rows: [["VERDICT", "BUILD"], ["CONFIDENCE", "84%"], ["SOM (YR 1)", "$12M"]] },
+    { label: "BAN RISK · STUDIO", title: "The number you check before you send", body: "Eighteen structural patterns, 2026 density tells and live community rule conflicts, recomputed as you type.", rows: [["SCORE", "88 / 100"], ["DEDUCTIONS", "3"], ["HARD VIOLATIONS", "0"]] },
+    { label: "STORY BANK", title: "Receipts a model can't fabricate", body: "Scars, metrics, turning points and defended opinions. Every draft pulls one real detail, which is what defeats the portability test.", rows: [["ENTRIES", "14"], ["METRICS ON FILE", "6"], ["SCARS", "4"]] },
+    { label: "PUBLISHING · MANUAL", title: "Copy, deep-link, send", body: "No automation anywhere in the loop. Deno prepares the post and the platform link; a human always presses the button.", rows: [["AUTOMATED ACTIONS", "0"], ["DEEP LINKS", "READY"], ["TOS POSTURE", "COMPLIANT"]] }
+  ];
+
+  componentDidMount() {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!("IntersectionObserver" in window)) return;
+    const targets = Array.from(document.querySelectorAll("section")).slice(3);
+    targets.forEach((el) => {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(18px)";
+      el.style.transition = "opacity .6s cubic-bezier(.2,.8,.2,1), transform .6s cubic-bezier(.2,.8,.2,1)";
+    });
+    const show = (el) => {
+      el.style.opacity = "1";
+      el.style.transform = "none";
+      el.dataset.revealed = "1";
+    };
+    const sweep = () => {
+      targets.forEach((el) => {
+        if (el.dataset.revealed) return;
+        const r = el.getBoundingClientRect();
+        if (r.top < window.innerHeight * 0.92) show(el);
+      });
+    };
+    let io = null;
+    try {
+      io = new IntersectionObserver((entries) => {
+        this._ioFired = true;
+        entries.forEach((e) => { if (e.isIntersecting) { show(e.target); io.unobserve(e.target); } });
+      }, { rootMargin: "0px 0px -8% 0px", threshold: 0.05 });
+      targets.forEach((el) => io.observe(el));
+    } catch (e) { io = null; }
+    this._io = io;
+    this._sweep = sweep;
+    window.addEventListener("scroll", sweep, { passive: true });
+    window.addEventListener("resize", sweep, { passive: true });
+    requestAnimationFrame(sweep);
+    this._t1 = setTimeout(sweep, 400);
+    this._t2 = setTimeout(() => { if (!this._ioFired) targets.forEach(show); }, 1200);
+  }
+
+  componentWillUnmount() {
+    if (this._io) this._io.disconnect();
+    if (this._sweep) {
+      window.removeEventListener("scroll", this._sweep);
+      window.removeEventListener("resize", this._sweep);
+    }
+    clearTimeout(this._t1);
+    clearTimeout(this._t2);
+  }
+
+  set = (i) => this.setState({ active: i });
+  setFaq = (i) => this.setState((s) => ({ faq: s.faq === i ? -1 : i }));
+
+  renderVals() {
+    const a = this.state.active;
+    const p = this.panels[a] || this.panels[0];
+    const score = this.props.demoScore ?? 88;
+    const f = this.state.faq;
+    return {
+      menuOpen: this.state.menuOpen,
+      toggleMenu: () => this.setState((s) => ({ menuOpen: !s.menuOpen })),
+      open0: a === 0, open1: a === 1, open2: a === 2, open3: a === 3, open4: a === 4,
+      pick0: () => this.set(0), pick1: () => this.set(1), pick2: () => this.set(2),
+      pick3: () => this.set(3), pick4: () => this.set(4),
+      panelLabel: p.label, panelTitle: p.title, panelBody: p.body,
+      row1: p.rows[0][0], val1: p.rows[0][1],
+      row2: p.rows[1][0], val2: p.rows[1][1],
+      row3: p.rows[2][0], val3: p.rows[2][1],
+      score: score,
+      verdictLine: score >= 85 ? "Clears the filter. Send as written." : score >= 65 ? "Borderline — apply the fixes below first." : "Do not send. Structural rewrite required.",
+      fo0: f === 0, fo1: f === 1, fo2: f === 2, fo3: f === 3,
+      f0: f === 0 ? "−" : "+", f1: f === 1 ? "−" : "+", f2: f === 2 ? "−" : "+", f3: f === 3 ? "−" : "+",
+      faq0: () => this.setFaq(0), faq1: () => this.setFaq(1), faq2: () => this.setFaq(2), faq3: () => this.setFaq(3)
+    };
+  }
+}
+</script>
+</body>
+</html>

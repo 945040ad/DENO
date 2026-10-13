@@ -11,6 +11,7 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from deno_api import cron
 from deno_api.errors import install_error_handlers
 from deno_api.health import register_readiness_check
 from deno_api.health import router as health_router
@@ -80,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     v1.include_router(billing.router)
     app.include_router(v1)
     app.include_router(health_router)
+    app.include_router(cron.router)
 
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.request_max_bytes)
     # Browsers normally reach the API through the Next.js /api rewrite (same

@@ -16,6 +16,7 @@ dependencies = [
   "redis[hiredis]>=8.0,<9",
   "taskiq>=0.12.6,<0.13",
   "taskiq-redis>=1.2.3,<2",
+  "httpx>=0.28,<0.29",
 ]
 
 [build-system]

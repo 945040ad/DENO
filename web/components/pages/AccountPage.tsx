@@ -583,7 +583,7 @@ function NotifTab({ me, onSaved, onError }: Saver) {
   }
   return (
     <div className="dv-rise">
-      <Head kicker="05 · NOTIFICATIONS" title="Only when it's your move." lede="Email only. Deno pings you when something needs a human, never to drive engagement." />
+      <Head kicker="05 · NOTIFICATIONS" title="Only when it's your move." lede="Email only, and not switched on yet during the beta. Your choices are saved and apply from the first email Deno sends — only when something needs a human." />
       <div style={{ padding: 'clamp(14px,2vw,24px) clamp(22px,3vw,40px) clamp(22px,3vw,40px)' }}>
         {NOTIFS.map(([key, label, desc]) => (
           <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 0', borderBottom: '1px solid rgba(16,22,19,.16)' }}>
@@ -675,7 +675,6 @@ function SecurityTab({ onError }: { onError: (m: string) => void }) {
           {mfa.qr && !mfa.enrolled && (
             <div className="dv-card dv-cell">
               <span style={{ fontSize: 13.5 }}>Scan with your authenticator app, then enter the 6-digit code.</span>
-              {/* eslint-disable-next-line @next/next/no-img-element -- data: URI QR from Supabase */}
               <img src={mfa.qr} alt="Two-factor QR code" width={160} height={160} />
               <div style={{ display: 'flex', gap: 8 }}>
                 <input className="dv-input" inputMode="numeric" placeholder="123456" value={mfa.code} onChange={(e) => setMfa({ ...mfa, code: e.target.value })} />

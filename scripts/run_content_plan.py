@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import uuid
 
 from redis.asyncio import Redis
@@ -46,10 +45,7 @@ async def main() -> None:
     ap.add_argument("run_id")
     ap.add_argument("--days", type=int, default=7)
     ap.add_argument("--seed-demo", action="store_true")
-    ap.add_argument(
-        "--db",
-        default=os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://postgres:postgres@127.0.0.1:54329/deno_test"),
-    )
+    ap.add_argument("--db", default=get_settings().database_url, help="defaults to DATABASE_URL (Supabase)")
     args = ap.parse_args()
     settings = get_settings().model_copy(update={"database_url": args.db})
     engine = build_engine(args.db)

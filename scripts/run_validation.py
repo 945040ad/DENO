@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
 import time
 import uuid
 
@@ -30,10 +29,7 @@ async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("idea", nargs="?", default="")
     ap.add_argument("--resume", help="run id to resume from its checkpoint (resets a failed run to running)")
-    ap.add_argument(
-        "--db",
-        default=os.getenv("TEST_DATABASE_URL", "postgresql+asyncpg://postgres:postgres@127.0.0.1:54329/deno_test"),
-    )
+    ap.add_argument("--db", default=get_settings().database_url, help="defaults to DATABASE_URL (Supabase)")
     ap.add_argument("--no-review", action="store_true")
     args = ap.parse_args()
 

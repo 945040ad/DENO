@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from deno_core.db import models as m
 from deno_core.db.enums import Platform, ProjectStatus, Source, Stance, UsageKind, VerdictKind
 from deno_core.db.repositories import UserScope, ensure_communities, record_source_health
+from deno_core.gcp import searxng_auth_headers
 from deno_core.logging import get_logger
 from deno_core.observability import NODE_SECONDS, SOURCE_ERRORS, SOURCE_POSTS
 from deno_core.runs import RunContext
@@ -251,6 +252,7 @@ async def collect(payload: dict[str, Any], config: RunnableConfig) -> dict[str, 
         searxng_url=d.settings.searxng_url,
         robots_opt_in=d.settings.sources_robots_opt_in,
         subreddits=payload.get("subreddits") or [],
+        searxng_headers=searxng_auth_headers(d.settings),
     )
     since = datetime.now(UTC) - timedelta(days=EVIDENCE_WINDOW_DAYS)
     posts: list[Post] = []

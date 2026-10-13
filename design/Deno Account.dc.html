@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital,wght@0,400;1,400&family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EFEDE6;color:#101613;font-family:'Schibsted Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#101613;text-decoration:none}
+a:hover{color:#0B5E3A}
+*{box-sizing:border-box}
+input::placeholder{color:#8A938E}
+input:focus,select:focus{outline:none}
+@keyframes denoPulse{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
+@keyframes denoRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes denoFill{from{width:0}}
+button,a,input,select{transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .2s cubic-bezier(.2,.8,.2,1),transform .2s cubic-bezier(.2,.8,.2,1)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</helmet>
+
+<div style="width:100%;overflow-x:hidden;background:#EFEDE6;padding:clamp(12px,2vw,28px)">
+<div style="max-width:1400px;margin:0 auto;border:1.5px solid #101613;background:#FAF8F3">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px clamp(14px,2vw,22px);border-bottom:1.5px solid #101613">
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+      <a href="#app" style="display:flex;align-items:flex-start;gap:5px;flex:none">
+        <span style="font-family:'DM Serif Display',serif;font-style:italic;font-weight:400;font-size:28px;line-height:.9;letter-spacing:-.02em">deno</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.14em;padding:2px 4px;background:#C6F24E;margin-top:2px">GTM</span>
+      </a>
+      <a href="#app" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;color:#4C5651;white-space:nowrap">← WORKSPACE</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex:none">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;padding:6px 9px;border:1.5px solid #101613;background:{{ planBadgeBg }};color:{{ planBadgeFg }}">{{ planBadge }}</span>
+      <span style="width:36px;height:36px;border:1.5px solid #101613;background:#C6F24E;display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:17px">{{ initials }}</span>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap">
+
+    <div style="flex:1 1 220px;max-width:100%;border-right:1.5px solid #101613;background:#F2F0EA;min-width:0">
+      <div style="padding:22px clamp(14px,2vw,22px) 14px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;color:#4C5651">ACCOUNT</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:26px;line-height:1.05;margin-top:6px">{{ name }}</div>
+        <div style="font-size:13px;color:#4C5651;margin-top:4px;word-break:break-all">{{ email }}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;border-top:1.5px solid #101613">
+        <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="7">
+          <button onClick="{{ item.go }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;border-bottom:1px solid rgba(16,22,19,.16);padding:13px clamp(14px,2vw,22px);cursor:pointer;font-family:'Schibsted Grotesk',sans-serif;font-size:14.5px;font-weight:600;background:{{ item.bg }};color:{{ item.fg }}">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:{{ item.numColor }}">{{ item.num }}</span>
+            <span style="flex:1;min-width:0">{{ item.label }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.06em;color:{{ item.numColor }}">{{ item.meta }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="padding:18px clamp(14px,2vw,22px)">
+        <a href="#signout" style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;border-bottom:1.5px solid #101613">Sign out →</a>
+      </div>
+    </div>
+
+    <div style="flex:999 1 520px;min-width:0">
+
+      <sc-if value="{{ tProfile }}" hint-placeholder-val="{{ true }}">
+        <div style="animation:denoRise .28s cubic-bezier(.2,.8,.2,1) both">
+          <div style="padding:clamp(22px,3vw,40px);border-bottom:1.5px solid #101613">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;background:#DBF2E2;border:1px solid rgba(11,94,58,.3);padding:4px 8px">01 · PROFILE</span>
+            <h1 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(30px,3.4vw,46px);line-height:1;letter-spacing:-.02em;margin:18px 0 10px">Who the posts are from.</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#3A443F;max-width:560px;text-wrap:pretty">Your name and product show up in drafts and disclosures. Communities can see this — keep it real.</p>
+          </div>
+          <div style="padding:clamp(22px,3vw,40px);display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 20px;max-width:880px">
+            <div>
+              <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">DISPLAY NAME</label>
+              <input value="{{ name }}" onChange="{{ setName }}" style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;padding:13px 14px;color:#101613" style-focus="border-color:#0B5E3A;box-shadow:3px 3px 0 #C6F24E" />
+            </div>
+            <div>
+              <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">EMAIL · VERIFIED</label>
+              <input value="{{ email }}" onChange="{{ setEmail }}" style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;padding:13px 14px;color:#101613" style-focus="border-color:#0B5E3A;box-shadow:3px 3px 0 #C6F24E" />
+            </div>
+            <div>
+              <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">PRODUCT NAME</label>
+              <input value="{{ product }}" onChange="{{ setProduct }}" style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;padding:13px 14px;color:#101613" style-focus="border-color:#0B5E3A;box-shadow:3px 3px 0 #C6F24E" />
+            </div>
+            <div>
+              <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">PRODUCT URL</label>
+              <input value="{{ url }}" onChange="{{ setUrl }}" style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;padding:13px 14px;color:#101613" style-focus="border-color:#0B5E3A;box-shadow:3px 3px 0 #C6F24E" />
+            </div>
+            <div>
+              <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">TIMEZONE · FOR POSTING WINDOWS</label>
+              <select style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;padding:13px 14px;color:#101613">
+                <option>Asia/Kolkata (UTC+5:30)</option>
+                <option>America/New_York (UTC−4)</option>
+                <option>Europe/London (UTC+1)</option>
+                <option>America/Los_Angeles (UTC−7)</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">ROLE</label>
+              <select style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;padding:13px 14px;color:#101613">
+                <option>Solo founder</option>
+                <option>Co-founder</option>
+                <option>Indie hacker</option>
+                <option>Founding marketer</option>
+              </select>
+            </div>
+          </div>
+          <div style="padding:0 clamp(22px,3vw,40px) clamp(22px,3vw,40px);display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <button onClick="{{ save }}" style="background:#C6F24E;color:#101613;border:1.5px solid #101613;box-shadow:4px 4px 0 #101613;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;font-weight:700;padding:14px 22px;cursor:pointer" style-hover="box-shadow:1px 1px 0 #101613;transform:translate(3px,3px)">Save changes</button>
+            <sc-if value="{{ saved }}" hint-placeholder-val="{{ false }}">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;color:#0B5E3A;animation:denoRise .24s ease both">✓ SAVED</span>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ tVoice }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:denoRise .28s cubic-bezier(.2,.8,.2,1) both">
+          <div style="padding:clamp(22px,3vw,40px);border-bottom:1.5px solid #101613">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;background:#DBF2E2;border:1px solid rgba(11,94,58,.3);padding:4px 8px">02 · VOICE &amp; HANDLES</span>
+            <h1 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(30px,3.4vw,46px);line-height:1;letter-spacing:-.02em;margin:18px 0 10px">Sound like you. Not like a model.</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#3A443F;max-width:560px;text-wrap:pretty">Deno reads your public posts to build a stylometric fingerprint. Handles are read-only — we never post, vote or DM from them.</p>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+            <div style="padding:clamp(22px,3vw,40px);border-right:1.5px solid #101613;display:flex;flex-direction:column;gap:12px;min-width:0">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em">PUBLIC HANDLES</div>
+              <sc-for list="{{ handles }}" as="h" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:12px;border:1.5px solid #101613;padding:12px 14px;background:#FAF8F3">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;background:#101613;color:#FAF8F3;padding:4px 7px;flex:none;min-width:74px;text-align:center">{{ h.platform }}</span>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                    <span style="font-size:14.5px;font-weight:600;overflow-wrap:anywhere">{{ h.handle }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;color:{{ h.color }}">{{ h.status }}</span>
+                  </div>
+                </div>
+              </sc-for>
+              <button style="align-self:flex-start;background:transparent;border:1.5px solid #101613;font-family:'Schibsted Grotesk',sans-serif;font-size:14px;font-weight:600;padding:11px 16px;cursor:pointer;color:#101613;margin-top:4px" style-hover="background:#101613;color:#FAF8F3">+ Add handle</button>
+              <div style="margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em">NO PUBLIC HISTORY? TAP A STYLE</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <sc-for list="{{ presets }}" as="p" hint-placeholder-count="5">
+                  <button onClick="{{ p.pick }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;border:1.5px solid #101613;padding:8px 11px;cursor:pointer;background:{{ p.bg }};color:#101613">{{ p.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="padding:clamp(22px,3vw,40px);background:#101613;color:#FAF8F3;min-width:0;display:flex;flex-direction:column;gap:14px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;color:#C6F24E">VOICE FINGERPRINT</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#9AA5A0">142 POSTS READ</span>
+              </div>
+              <div style="font-family:'DM Serif Display',serif;font-size:clamp(40px,4.6vw,58px);line-height:.9;color:#C6F24E">0.31</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;color:#9AA5A0;margin-top:-6px">AVG DELTA · DRAFTS VS YOU · LOWER IS CLOSER</div>
+              <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+                <sc-for list="{{ traits }}" as="t" hint-placeholder-count="4">
+                  <div>
+                    <div style="display:flex;justify-content:space-between;gap:12px;font-size:13px;margin-bottom:5px"><span>{{ t.label }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#C6F24E">{{ t.value }}</span></div>
+                    <div style="height:6px;background:rgba(250,248,243,.14)"><div style="height:100%;background:#C6F24E;animation:denoFill .9s cubic-bezier(.2,.8,.2,1) both;width:{{ t.pct }}"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="margin-top:auto;border:1px solid rgba(198,242,78,.45);background:rgba(198,242,78,.1);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                <span style="font-size:13.5px">Regenerate if delta exceeds</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#C6F24E">0.45</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ tBilling }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:denoRise .28s cubic-bezier(.2,.8,.2,1) both">
+          <div style="padding:clamp(22px,3vw,40px);border-bottom:1.5px solid #101613">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;background:#DBF2E2;border:1px solid rgba(11,94,58,.3);padding:4px 8px">03 · PLAN &amp; USAGE</span>
+            <h1 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(30px,3.4vw,46px);line-height:1;letter-spacing:-.02em;margin:18px 0 10px">{{ planHeadline }}</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#3A443F;max-width:560px;text-wrap:pretty">{{ planSub }}</p>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));border-bottom:1.5px solid #101613">
+            <div style="padding:clamp(22px,3vw,40px);border-right:1.5px solid #101613;min-width:0">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:16px">THIS MONTH · RESETS OCT 01</div>
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <sc-for list="{{ usage }}" as="u" hint-placeholder-count="3">
+                  <div>
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:7px">
+                      <span style="font-size:14.5px;font-weight:600">{{ u.label }}</span>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700">{{ u.used }} / {{ u.limit }}</span>
+                    </div>
+                    <div style="height:10px;border:1.5px solid #101613;background:#FAF8F3"><div style="height:100%;animation:denoFill .9s cubic-bezier(.2,.8,.2,1) both;width:{{ u.pct }};background:{{ u.color }}"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="padding:clamp(22px,3vw,40px);min-width:0;background:{{ planCardBg }}">
+              <sc-if value="{{ isFree }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:14px">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em">STAGE 2 · PRO</span>
+                  <div style="display:flex;align-items:baseline;gap:8px"><span style="font-family:'DM Serif Display',serif;font-size:56px;line-height:.9">$20</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700">/ MONTH</span></div>
+                  <div style="display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.45">
+                    <span>→ 50 validation runs, 20 content plans</span>
+                    <span>→ Ban Risk Score on 5,000 audits</span>
+                    <span>→ 30-day calendar + Story Bank</span>
+                  </div>
+                  <button onClick="{{ goCheckout }}" style="align-self:flex-start;background:#101613;color:#C6F24E;border:1.5px solid #101613;box-shadow:4px 4px 0 #FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;font-weight:700;padding:14px 20px;cursor:pointer;margin-top:4px" style-hover="box-shadow:1px 1px 0 #FAF8F3;transform:translate(3px,3px)">Upgrade to Pro →</button>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.06em">7 OF 25 BETA SEATS LEFT</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ isPro }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:14px">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;color:#0B5E3A">PRO · ACTIVE</span>
+                  <div style="font-family:'DM Serif Display',serif;font-size:28px;line-height:1.1">Renews Oct 24 · $20.00</div>
+                  <div style="display:flex;align-items:center;gap:12px;border:1.5px solid #101613;padding:12px 14px;background:#FAF8F3">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;background:#101613;color:#FAF8F3;padding:4px 7px">VISA</span>
+                    <span style="flex:1;font-family:'JetBrains Mono',monospace;font-size:13px">•••• {{ last4 }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#4C5651">{{ expDisplay }}</span>
+                  </div>
+                  <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <button onClick="{{ goCheckout }}" style="background:transparent;border:1.5px solid #101613;font-family:'Schibsted Grotesk',sans-serif;font-size:14px;font-weight:600;padding:11px 16px;cursor:pointer;color:#101613" style-hover="background:#101613;color:#FAF8F3">Update card</button>
+                    <button onClick="{{ cancelPro }}" style="background:transparent;border:1.5px solid #A8321C;font-family:'Schibsted Grotesk',sans-serif;font-size:14px;font-weight:600;padding:11px 16px;cursor:pointer;color:#A8321C" style-hover="background:#A8321C;color:#FAF8F3">Cancel plan</button>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+          <sc-if value="{{ isPro }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:clamp(22px,3vw,40px)">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:12px">INVOICES</div>
+              <div style="border:1.5px solid #101613">
+                <sc-for list="{{ invoices }}" as="inv" hint-placeholder-count="2">
+                  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid rgba(16,22,19,.16)">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;min-width:110px">{{ inv.date }}</span>
+                    <span style="flex:1;min-width:120px;font-size:14px">{{ inv.desc }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700">{{ inv.amount }}</span>
+                    <a href="#pdf" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;border-bottom:1.5px solid #101613">PDF ↓</a>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ tCheckout }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:denoRise .28s cubic-bezier(.2,.8,.2,1) both">
+          <sc-if value="{{ checkoutForm }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+              <div style="padding:clamp(22px,3vw,40px);border-right:1.5px solid #101613;min-width:0">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;background:#C6F24E;border:1px solid #101613;padding:4px 8px">04 · CHECKOUT</span>
+                <h1 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(30px,3.4vw,46px);line-height:1;letter-spacing:-.02em;margin:18px 0 22px">Unlock distribution.</h1>
+                <div style="display:flex;flex-direction:column;gap:14px">
+                  <div>
+                    <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">NAME ON CARD</label>
+                    <input value="{{ cardName }}" onChange="{{ setCardName }}" placeholder="Priya Raman" style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;padding:13px 14px;color:#101613" style-focus="border-color:#0B5E3A;box-shadow:3px 3px 0 #C6F24E" />
+                  </div>
+                  <div>
+                    <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">CARD NUMBER</label>
+                    <input value="{{ cardNum }}" onChange="{{ setCardNum }}" placeholder="4242 4242 4242 4242" inputMode="numeric" style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:.06em;padding:13px 14px;color:#101613" style-focus="border-color:#0B5E3A;box-shadow:3px 3px 0 #C6F24E" />
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px">
+                    <div>
+                      <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">EXPIRY</label>
+                      <input value="{{ cardExp }}" onChange="{{ setCardExp }}" placeholder="MM / YY" style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'JetBrains Mono',monospace;font-size:15px;padding:13px 14px;color:#101613" style-focus="border-color:#0B5E3A;box-shadow:3px 3px 0 #C6F24E" />
+                    </div>
+                    <div>
+                      <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">CVC</label>
+                      <input value="{{ cardCvc }}" onChange="{{ setCardCvc }}" placeholder="123" style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'JetBrains Mono',monospace;font-size:15px;padding:13px 14px;color:#101613" style-focus="border-color:#0B5E3A;box-shadow:3px 3px 0 #C6F24E" />
+                    </div>
+                    <div>
+                      <label style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:7px">COUNTRY</label>
+                      <select style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;padding:13px 12px;color:#101613">
+                        <option>India</option><option>United States</option><option>United Kingdom</option><option>Germany</option>
+                      </select>
+                    </div>
+                  </div>
+                  <sc-if value="{{ payError }}" hint-placeholder-val="{{ false }}">
+                    <div style="border:1.5px solid #D93A22;background:#FDEDE8;padding:11px 13px;display:flex;gap:10px"><span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:#A8321C">ERR</span><span style="font-size:13px;color:#3A2A22">{{ payErrorMsg }}</span></div>
+                  </sc-if>
+                  <button onClick="{{ pay }}" style="width:100%;background:#C6F24E;color:#101613;border:1.5px solid #101613;box-shadow:4px 4px 0 #101613;font-family:'Schibsted Grotesk',sans-serif;font-size:16px;font-weight:700;padding:16px;cursor:pointer;margin-top:4px" style-hover="box-shadow:1px 1px 0 #101613;transform:translate(3px,3px)">{{ payLabel }}</button>
+                  <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:#4C5651;line-height:1.6">SECURED BY STRIPE · CANCEL ANYTIME · PRORATED REFUND IN FIRST 7 DAYS</p>
+                </div>
+              </div>
+              <div style="padding:clamp(22px,3vw,40px);background:#101613;color:#FAF8F3;min-width:0;display:flex;flex-direction:column;gap:16px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;color:#C6F24E">ORDER SUMMARY</span>
+                <div style="border:1.5px solid #C6F24E;background:rgba(198,242,78,.1);padding:18px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="font-family:'DM Serif Display',serif;font-size:28px">Deno Pro</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700">$20.00</span></div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#9AA5A0;margin-top:4px">MONTHLY · BETA SEAT</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;gap:12px;border:1px solid rgba(250,248,243,.22);padding:11px 13px;font-size:13.5px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#C6F24E">01</span>Ban Risk Score, itemized, every draft</div>
+                  <div style="display:flex;gap:12px;border:1px solid rgba(250,248,243,.22);padding:11px 13px;font-size:13.5px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#C6F24E">02</span>30-day calendar across 5–10 communities</div>
+                  <div style="display:flex;gap:12px;border:1px solid rgba(250,248,243,.22);padding:11px 13px;font-size:13.5px"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#C6F24E">03</span>Voice-matched drafts + Story Bank</div>
+                </div>
+                <div style="margin-top:auto;border-top:1px solid rgba(250,248,243,.22);padding-top:14px;display:flex;flex-direction:column;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px">
+                  <div style="display:flex;justify-content:space-between"><span style="color:#9AA5A0">SUBTOTAL</span><span>$20.00</span></div>
+                  <div style="display:flex;justify-content:space-between"><span style="color:#9AA5A0">TAX</span><span>Calculated at payment</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:#C6F24E;margin-top:4px"><span>DUE TODAY</span><span>$20.00</span></div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ checkoutDone }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:clamp(28px,5vw,72px);display:flex;flex-direction:column;gap:16px;align-items:flex-start;max-width:720px">
+              <div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:50%;background:#0B5E3A;animation:denoPulse 1.6s infinite"></span><span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.1em;color:#0B5E3A">PAYMENT CONFIRMED · RECEIPT SENT</span></div>
+              <h1 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(34px,4vw,56px);line-height:1;letter-spacing:-.02em;margin:0">You're Pro. Stage 2 is unlocked.</h1>
+              <p style="margin:0;font-size:15.5px;line-height:1.6;color:#3A443F">Your BUILD verdict is ready to become a 30-day plan. First draft can be scored in under a minute.</p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <a href="#app" style="background:#C6F24E;color:#101613;border:1.5px solid #101613;box-shadow:4px 4px 0 #101613;font-size:15px;font-weight:700;padding:14px 20px" style-hover="box-shadow:1px 1px 0 #101613;transform:translate(3px,3px);color:#101613">Build my calendar →</a>
+                <button onClick="{{ goBilling }}" style="background:transparent;border:1.5px solid #101613;font-family:'Schibsted Grotesk',sans-serif;font-size:14px;font-weight:600;padding:13px 18px;cursor:pointer;color:#101613" style-hover="background:#101613;color:#FAF8F3">View billing</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ tNotif }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:denoRise .28s cubic-bezier(.2,.8,.2,1) both">
+          <div style="padding:clamp(22px,3vw,40px);border-bottom:1.5px solid #101613">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;background:#DBF2E2;border:1px solid rgba(11,94,58,.3);padding:4px 8px">05 · NOTIFICATIONS</span>
+            <h1 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(30px,3.4vw,46px);line-height:1;letter-spacing:-.02em;margin:18px 0 10px">Only when it's your move.</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#3A443F;max-width:560px">Email only. Deno pings you when something needs a human — never to drive engagement.</p>
+          </div>
+          <div style="padding:clamp(14px,2vw,24px) clamp(22px,3vw,40px) clamp(22px,3vw,40px)">
+            <sc-for list="{{ notifs }}" as="n" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid rgba(16,22,19,.16)">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:600">{{ n.label }}</div>
+                  <div style="font-size:13.5px;color:#4C5651;margin-top:3px;line-height:1.45">{{ n.desc }}</div>
+                </div>
+                <button onClick="{{ n.toggle }}" aria-label="{{ n.label }}" style="flex:none;width:48px;height:26px;border:1.5px solid #101613;padding:0;cursor:pointer;position:relative;background:{{ n.track }}">
+                  <span style="position:absolute;top:3px;left:3px;width:17px;height:17px;background:#101613;transition:transform .22s cubic-bezier(.2,.8,.2,1);transform:{{ n.knob }}"></span>
+                </button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ tSecurity }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:denoRise .28s cubic-bezier(.2,.8,.2,1) both">
+          <div style="padding:clamp(22px,3vw,40px);border-bottom:1.5px solid #101613">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;background:#DBF2E2;border:1px solid rgba(11,94,58,.3);padding:4px 8px">06 · SECURITY</span>
+            <h1 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(30px,3.4vw,46px);line-height:1;letter-spacing:-.02em;margin:18px 0 0">Login and sessions.</h1>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+            <div style="padding:clamp(22px,3vw,40px);border-right:1.5px solid #101613;display:flex;flex-direction:column;gap:14px;min-width:0">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em">CHANGE PASSWORD</div>
+              <input type="password" placeholder="Current password" style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;padding:13px 14px;color:#101613" style-focus="border-color:#0B5E3A;box-shadow:3px 3px 0 #C6F24E" />
+              <input type="password" placeholder="New password · 10+ characters" style="width:100%;border:1.5px solid #101613;background:#FAF8F3;font-family:'Schibsted Grotesk',sans-serif;font-size:15px;padding:13px 14px;color:#101613" style-focus="border-color:#0B5E3A;box-shadow:3px 3px 0 #C6F24E" />
+              <button style="align-self:flex-start;background:#101613;color:#FAF8F3;border:1.5px solid #101613;font-family:'Schibsted Grotesk',sans-serif;font-size:14px;font-weight:700;padding:12px 18px;cursor:pointer" style-hover="background:#0B5E3A">Update password</button>
+              <div style="display:flex;align-items:center;gap:16px;border:1.5px solid #101613;padding:14px;margin-top:10px;background:{{ tfaCard }}">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:600">Two-factor authentication</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;margin-top:4px;color:{{ tfaColor }}">{{ tfaLabel }}</div>
+                </div>
+                <button onClick="{{ toggle2fa }}" aria-label="Two-factor" style="flex:none;width:48px;height:26px;border:1.5px solid #101613;padding:0;cursor:pointer;position:relative;background:{{ tfaTrack }}">
+                  <span style="position:absolute;top:3px;left:3px;width:17px;height:17px;background:#101613;transition:transform .22s cubic-bezier(.2,.8,.2,1);transform:{{ tfaKnob }}"></span>
+                </button>
+              </div>
+            </div>
+            <div style="padding:clamp(22px,3vw,40px);min-width:0">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-bottom:12px">ACTIVE SESSIONS</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:12px;border:1.5px solid #101613;padding:12px 14px;animation:denoRise .22s ease both">
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:14.5px;font-weight:600">{{ s.device }}</div>
+                      <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#4C5651;margin-top:3px">{{ s.where }}</div>
+                    </div>
+                    <sc-if value="{{ s.current }}" hint-placeholder-val="{{ false }}"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#0B5E3A;background:#DBF2E2;padding:4px 7px">THIS DEVICE</span></sc-if>
+                    <sc-if value="{{ s.other }}" hint-placeholder-val="{{ true }}"><button onClick="{{ s.revoke }}" style="background:transparent;border:0;border-bottom:1.5px solid #A8321C;padding:0;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:#A8321C;cursor:pointer">REVOKE</button></sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ tData }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:denoRise .28s cubic-bezier(.2,.8,.2,1) both">
+          <div style="padding:clamp(22px,3vw,40px);border-bottom:1.5px solid #101613">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.12em;background:#DBF2E2;border:1px solid rgba(11,94,58,.3);padding:4px 8px">07 · DATA &amp; PRIVACY</span>
+            <h1 style="font-family:'DM Serif Display',serif;font-weight:400;font-size:clamp(30px,3.4vw,46px);line-height:1;letter-spacing:-.02em;margin:18px 0 10px">Your data leaves when you do.</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#3A443F;max-width:560px">Download everything Deno stores about you, or delete it all. Deletion is permanent and also removes your login.</p>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+            <div style="padding:clamp(22px,3vw,40px);border-right:1.5px solid #101613;display:flex;flex-direction:column;gap:12px;align-items:flex-start;min-width:0">
+              <div style="font-family:'DM Serif Display',serif;font-size:26px;line-height:1.1">Export</div>
+              <p style="margin:0;font-size:14px;line-height:1.55;color:#3A443F">Projects, verdicts, source ledgers, drafts, Story Bank and voice fingerprint as one JSON file.</p>
+              <button onClick="{{ doExport }}" style="background:transparent;border:1.5px solid #101613;font-family:'Schibsted Grotesk',sans-serif;font-size:14px;font-weight:600;padding:12px 18px;cursor:pointer;color:#101613" style-hover="background:#101613;color:#FAF8F3">{{ exportLabel }}</button>
+              <a href="#takedown" style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;border-bottom:1.5px solid #101613">Request a takedown for a third party →</a>
+            </div>
+            <div style="padding:clamp(22px,3vw,40px);background:#FDEDE8;min-width:0;display:flex;flex-direction:column;gap:12px">
+              <div style="font-family:'DM Serif Display',serif;font-size:26px;line-height:1.1;color:#A8321C">Delete account</div>
+              <p style="margin:0;font-size:14px;line-height:1.55;color:#3A2A22">Cancels any plan, removes every project and wipes your login. This can't be undone.</p>
+              <label style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.08em;margin-top:4px">TYPE DELETE TO CONFIRM</label>
+              <input value="{{ confirm }}" onChange="{{ setConfirm }}" placeholder="DELETE" style="width:100%;border:1.5px solid #A8321C;background:#FAF8F3;font-family:'JetBrains Mono',monospace;font-size:15px;padding:13px 14px;color:#101613" style-focus="box-shadow:3px 3px 0 #A8321C" />
+              <button onClick="{{ doDelete }}" style="align-self:flex-start;border:1.5px solid #A8321C;font-family:'Schibsted Grotesk',sans-serif;font-size:14px;font-weight:700;padding:12px 18px;cursor:{{ delCursor }};opacity:{{ delOpacity }};background:#A8321C;color:#FAF8F3">{{ deleteLabel }}</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;voice&quot;,&quot;billing&quot;,&quot;checkout&quot;,&quot;notif&quot;,&quot;security&quot;,&quot;data&quot;],&quot;default&quot;:&quot;profile&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Account&quot;},&quot;plan&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;free&quot;,&quot;pro&quot;],&quot;default&quot;:&quot;free&quot;,&quot;tsType&quot;:&quot;\&quot;free\&quot; | \&quot;pro\&quot;&quot;,&quot;section&quot;:&quot;Account&quot;}}">
+class Component extends DCLogic {
+  state = {
+    tab: null, plan: null, name: "Priya Raman", email: "priya@racecheck.dev", product: "RaceCheck", url: "racecheck.dev",
+    saved: false, preset: 1, notif: [true, true, true, true, false, false], tfa: false,
+    sessions: [
+      { id: 1, device: "Chrome · macOS", where: "BENGALURU · ACTIVE NOW", current: true },
+      { id: 2, device: "Safari · iPhone", where: "BENGALURU · 2 HOURS AGO" },
+      { id: 3, device: "Firefox · Ubuntu", where: "PUNE · 6 DAYS AGO" }
+    ],
+    confirm: "", exported: false, deleted: false,
+    cardName: "", cardNum: "", cardExp: "", cardCvc: "", payError: "", paying: false, paid: false
+  };
+
+  tab() { return this.state.tab || this.props.startTab || "profile"; }
+  plan() { return this.state.plan || this.props.plan || "free"; }
+  go = (t) => () => this.setState({ tab: t, saved: false, payError: "" });
+  set = (k) => (e) => this.setState({ [k]: e.target.value, payError: "" });
+
+  setCardNum = (e) => {
+    const d = e.target.value.replace(/\D/g, "").slice(0, 16);
+    this.setState({ cardNum: d.replace(/(.{4})/g, "$1 ").trim(), payError: "" });
+  };
+  setCardExp = (e) => {
+    const d = e.target.value.replace(/\D/g, "").slice(0, 4);
+    this.setState({ cardExp: d.length > 2 ? d.slice(0, 2) + " / " + d.slice(2) : d, payError: "" });
+  };
+  setCardCvc = (e) => this.setState({ cardCvc: e.target.value.replace(/\D/g, "").slice(0, 4), payError: "" });
+
+  pay = () => {
+    const s = this.state;
+    if (!s.cardName.trim()) return this.setState({ payError: "Add the name printed on the card." });
+    if (s.cardNum.replace(/\s/g, "").length < 15) return this.setState({ payError: "Card number looks incomplete." });
+    if (!/^\d{2} \/ \d{2}$/.test(s.cardExp)) return this.setState({ payError: "Expiry should be MM / YY." });
+    if (s.cardCvc.length < 3) return this.setState({ payError: "CVC is the 3–4 digits on the back." });
+    this.setState({ paying: true });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ paying: false, paid: true, plan: "pro" }), 1100);
+  };
+
+  componentWillUnmount() { clearTimeout(this._t); clearTimeout(this._s); }
+
+  renderVals() {
+    const t = this.tab();
+    const pro = this.plan() === "pro";
+    const s = this.state;
+    const nav = [
+      ["profile", "01", "Profile", ""],
+      ["voice", "02", "Voice & handles", "3"],
+      ["billing", "03", "Plan & usage", pro ? "PRO" : "FREE"],
+      ["checkout", "04", "Checkout", ""],
+      ["notif", "05", "Notifications", ""],
+      ["security", "06", "Security", s.tfa ? "2FA" : ""],
+      ["data", "07", "Data & privacy", ""]
+    ].map(([k, num, label, meta]) => {
+      const on = t === k;
+      return { go: this.go(k), num, label, meta, bg: on ? "#101613" : "transparent", fg: on ? "#FAF8F3" : "#101613", numColor: on ? "#C6F24E" : "#4C5651" };
+    });
+    const lim = pro ? [50, 20, 5000] : [5, 1, 200];
+    const used = [3, 1, 84];
+    const usage = ["Validation runs", "Content plans", "Ban Risk audits"].map((label, i) => {
+      const r = used[i] / lim[i];
+      return { label, used: used[i].toLocaleString(), limit: lim[i].toLocaleString(), pct: Math.max(2, Math.round(r * 100)) + "%", color: r >= 1 ? "#D93A22" : r > 0.7 ? "#C8A21A" : "#0B5E3A" };
+    });
+    const nDefs = [
+      ["Verdict ready", "When a validation run finishes — usually ~90 seconds."],
+      ["Draft ready to send", "Morning of each calendar slot, with the deep link to post."],
+      ["Community rule changed", "A subreddit you target updated its self-promo or AI policy."],
+      ["Ban risk above 70", "A draft in your queue crossed the safe threshold."],
+      ["Weekly digest", "Mondays: what shipped, what's next, what got flagged."],
+      ["Product updates", "New agents, communities and features. Rare."]
+    ];
+    const notifs = nDefs.map(([label, desc], i) => {
+      const on = s.notif[i];
+      return { label, desc, track: on ? "#C6F24E" : "#FAF8F3", knob: on ? "translateX(22px)" : "translateX(0)", toggle: () => this.setState((st) => { const n = st.notif.slice(); n[i] = !n[i]; return { notif: n }; }) };
+    });
+    const presets = ["Terse engineer", "Build-in-public", "Dry humour", "Data-first", "Storyteller"].map((label, i) => ({ label, bg: s.preset === i ? "#C6F24E" : "transparent", pick: () => this.setState({ preset: i }) }));
+    const canDel = s.confirm === "DELETE";
+    const last4 = s.cardNum.replace(/\s/g, "").slice(-4) || "4242";
+    return {
+      name: s.name, email: s.email, product: s.product, url: s.url,
+      initials: s.name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "D",
+      setName: this.set("name"), setEmail: this.set("email"), setProduct: this.set("product"), setUrl: this.set("url"),
+      save: () => { this.setState({ saved: true }); clearTimeout(this._s); this._s = setTimeout(() => this.setState({ saved: false }), 2200); },
+      saved: s.saved,
+      navItems: nav,
+      tProfile: t === "profile", tVoice: t === "voice", tBilling: t === "billing", tCheckout: t === "checkout", tNotif: t === "notif", tSecurity: t === "security", tData: t === "data",
+      planBadge: pro ? "PRO" : "FREE PLAN", planBadgeBg: pro ? "#C6F24E" : "transparent", planBadgeFg: "#101613",
+      isFree: !pro, isPro: pro,
+      planHeadline: pro ? "Pro. Distribution unlocked." : "Free. Validation, forever.",
+      planSub: pro ? "Ban Risk, 30-day calendar and Story Bank are on. Usage below resets on the first of each month." : "You're on Stage 1. Upgrade only when a verdict says BUILD and you want the plan to post it.",
+      planCardBg: pro ? "#DBF2E2" : "#C6F24E",
+      usage,
+      goCheckout: this.go("checkout"), goBilling: this.go("billing"),
+      cancelPro: () => this.setState({ plan: "free", paid: false }),
+      last4, expDisplay: s.cardExp ? s.cardExp.replace(" / ", "/") : "08/29",
+      invoices: [
+        { date: "SEP 24, 2026", desc: "Deno Pro · monthly", amount: "$20.00" },
+        { date: "AUG 24, 2026", desc: "Deno Pro · monthly", amount: "$20.00" }
+      ],
+      handles: [
+        { platform: "REDDIT", handle: "u/priya_builds", status: "READ · 96 POSTS", color: "#0B5E3A" },
+        { platform: "X", handle: "@priyaraman", status: "READ · 46 POSTS", color: "#0B5E3A" },
+        { platform: "LINKEDIN", handle: "linkedin.com/in/priyaraman", status: "QUEUED", color: "#4C5651" }
+      ],
+      presets,
+      traits: [
+        { label: "Sentence length variance", value: "HIGH", pct: "78%" },
+        { label: "Function-word match", value: "0.88", pct: "88%" },
+        { label: "Hedging frequency", value: "LOW", pct: "24%" },
+        { label: "First-person receipts", value: "0.62", pct: "62%" }
+      ],
+      checkoutForm: !s.paid, checkoutDone: s.paid,
+      cardName: s.cardName, cardNum: s.cardNum, cardExp: s.cardExp, cardCvc: s.cardCvc,
+      setCardName: this.set("cardName"), setCardNum: this.setCardNum, setCardExp: this.setCardExp, setCardCvc: this.setCardCvc,
+      pay: this.pay, payLabel: s.paying ? "Processing…" : "Pay $20.00 and upgrade",
+      payError: !!s.payError, payErrorMsg: s.payError,
+      notifs,
+      tfaTrack: s.tfa ? "#C6F24E" : "#FAF8F3", tfaKnob: s.tfa ? "translateX(22px)" : "translateX(0)",
+      tfaCard: s.tfa ? "#DBF2E2" : "#FAF8F3", tfaColor: s.tfa ? "#0B5E3A" : "#A8321C",
+      tfaLabel: s.tfa ? "ON · AUTHENTICATOR APP" : "OFF · RECOMMENDED",
+      toggle2fa: () => this.setState((st) => ({ tfa: !st.tfa })),
+      sessions: s.sessions.map((x) => ({ ...x, current: !!x.current, other: !x.current, revoke: () => this.setState((st) => ({ sessions: st.sessions.filter((y) => y.id !== x.id) })) })),
+      confirm: s.confirm, setConfirm: this.set("confirm"),
+      doExport: () => this.setState({ exported: true }),
+      exportLabel: s.exported ? "✓ deno-export.json downloaded" : "Download my data",
+      doDelete: () => { if (canDel) this.setState({ deleted: true }); },
+      deleteLabel: s.deleted ? "Account scheduled for deletion" : "Delete account permanently",
+      delOpacity: canDel || s.deleted ? "1" : ".45", delCursor: canDel ? "pointer" : "not-allowed"
+    };
+  }
+}
+
+</script>
+</body>
+</html>

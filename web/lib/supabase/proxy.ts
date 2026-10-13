@@ -36,15 +36,27 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const signedIn = Boolean(data?.claims?.sub);
 
   const { pathname } = request.nextUrl;
-  if (!signedIn && PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/auth';
-    url.search = '';
-    url.searchParams.set('next', pathname);
-    const redirect = NextResponse.redirect(url);
-    response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
-    return redirect;
+  const isProtected = PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  if (!signedIn && isProtected) return redirectTo(request, response, '/auth', pathname);
+
+  if (signedIn && isProtected) {
+    // Password-only session on an account with 2FA: ask for the code before the workspace.
+    // The API enforces the same rule, so this is the friendly path, not the only guard.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+      return redirectTo(request, response, '/auth/mfa', pathname);
+    }
   }
 
   return response;
+}
+
+function redirectTo(request: NextRequest, response: NextResponse, path: string, next: string): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = path;
+  url.search = '';
+  url.searchParams.set('next', next);
+  const redirect = NextResponse.redirect(url);
+  response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+  return redirect;
 }

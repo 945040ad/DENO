@@ -208,11 +208,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`/api/v1${path}`, { ...init, headers });
   if (!res.ok) {
     let message = `${res.status} ${res.statusText}`;
+    let code: string | undefined;
     try {
-      const body = (await res.json()) as { error?: { message?: string } };
+      const body = (await res.json()) as { error?: { code?: string; message?: string } };
       if (body.error?.message) message = body.error.message;
+      code = body.error?.code;
     } catch {
       /* not JSON */
+    }
+    if (code === 'mfa_required' && typeof window !== 'undefined') {
+      // The session is password-only but this account has 2FA: finish the second step first.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full reload outside React on purpose
+      window.location.href = `/auth/mfa?next=${encodeURIComponent(window.location.pathname)}`;
     }
     throw new ApiError(res.status, message);
   }

@@ -64,7 +64,7 @@ export function SiteHeader() {
           <div className="mega-menu__col">
             <div className="mega-menu__swatch grid-wash grid-wash--green"></div>
             <div className="display" style={{ fontSize: 24, marginBottom: 6 }}>Validation</div>
-            <div className="mega-menu__desc">Eight adversarial agents. One Build / Pivot / Kill verdict, with sources.</div>
+            <div className="mega-menu__desc">Research agents and a critic. One Build / Pivot / Kill verdict, with sources.</div>
             <div className="mega-menu__links">
               <a href="/app">Idea intake →</a><a href="#how">Market sizing →</a><a href="#how">Source ledger →</a>
             </div>
@@ -72,7 +72,7 @@ export function SiteHeader() {
           <div className="mega-menu__col">
             <div className="mega-menu__swatch grid-wash grid-wash--peach"></div>
             <div className="display" style={{ fontSize: 24, marginBottom: 6 }}>Distribution</div>
-            <div className="mega-menu__desc">Thirty days of posts in your voice, for the communities that will have you.</div>
+            <div className="mega-menu__desc">Up to thirty days of posts in your voice, for the communities that will have you.</div>
             <div className="mega-menu__links">
               <a href="/app">Content calendar →</a><a href="#how">Community radar →</a><a href="#how">Hook library →</a>
             </div>

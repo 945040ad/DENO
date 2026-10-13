@@ -155,3 +155,54 @@ def test_invalid_token_is_401_without_details(api: TestClient) -> None:
     assert res.status_code == 401
     assert res.json()["error"]["code"] == "unauthenticated"
     assert res.json()["error"]["message"] == "Invalid or expired session"
+
+
+# ---- two-factor enforcement --------------------------------------------------
+
+
+def test_verifier_reads_assurance_level(verifier: TokenVerifier) -> None:
+    assert verifier.verify(make_token()).aal == "aal1"
+    assert verifier.verify(make_token(aal="aal2")).aal == "aal2"
+
+
+class _FakeRequest:
+    def __init__(self, sessionmaker: object | None) -> None:
+        self.app = type("App", (), {"state": type("State", (), {"sessionmaker": sessionmaker})()})()
+
+
+@pytest.mark.parametrize(
+    ("aal", "enrolled", "blocked"),
+    [("aal1", True, True), ("aal2", True, False), ("aal1", False, False)],
+    ids=["password-only-with-2fa", "second-factor-verified", "no-2fa-enrolled"],
+)
+async def test_password_only_session_is_blocked_once_2fa_is_enrolled(
+    monkeypatch: pytest.MonkeyPatch, aal: str, enrolled: bool, blocked: bool
+) -> None:
+    from deno_api import deps
+    from deno_core.errors import MfaRequired
+
+    async def has_factor(_maker: object, _uid: uuid.UUID) -> bool:
+        return enrolled
+
+    monkeypatch.setattr(deps, "_has_verified_factor", has_factor)
+    sub = uuid.uuid4()
+    user = AuthUser(id=str(sub), email=None, role="authenticated", aal=aal)
+    request = _FakeRequest(sessionmaker=object())
+    if blocked:
+        with pytest.raises(MfaRequired):
+            await deps.user_uuid(request, user)  # type: ignore[arg-type]
+    else:
+        assert await deps.user_uuid(request, user) == sub  # type: ignore[arg-type]
+
+
+async def test_dev_user_and_missing_database_skip_the_2fa_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    from deno_api import deps
+    from deno_api.auth import DEV_USER
+
+    async def boom(_maker: object, _uid: uuid.UUID) -> bool:
+        raise AssertionError("should not query")
+
+    monkeypatch.setattr(deps, "_has_verified_factor", boom)
+    await deps.user_uuid(_FakeRequest(sessionmaker=object()), DEV_USER)  # type: ignore[arg-type]
+    user = AuthUser(id=str(uuid.uuid4()), email=None, role="authenticated")
+    await deps.user_uuid(_FakeRequest(sessionmaker=None), user)  # type: ignore[arg-type]

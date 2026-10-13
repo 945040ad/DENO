@@ -21,6 +21,7 @@ from sqlalchemy import select
 
 from deno_core.db import models as m
 from deno_core.errors import UpstreamUnavailable
+from deno_core.gcp import searxng_auth_headers
 from deno_core.logging import get_logger
 from deno_core.observability import RUN_SECONDS, RUNS
 from deno_core.runs import RunContext, RunOutcome, register_runner
@@ -95,6 +96,7 @@ async def _run(ctx: RunContext, settings: Settings) -> RunOutcome:
             searxng_url=settings.searxng_url,
             robots_opt_in=settings.sources_robots_opt_in,
             user_agent=settings.sources_user_agent or None,
+            searxng_headers=searxng_auth_headers(settings),
         ),
         cache=ValkeyCache(redis),
     )

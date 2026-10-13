@@ -19,7 +19,7 @@ Deno is a hybrid-architecture founder workspace designed for 2026 platform reali
 * **API Gateway & Web Host:** Deno 2 (TypeScript, `Deno.serve`, static asset streaming)
 * **Core ML & Agent Engine:** Python 3.14 + FastAPI + Pydantic v2 + NumPy (Burrows' Delta stylometry)
 * **LLM Model & Provider:** NVIDIA NIM (`meta/llama-3.2-11b-vision-instruct` via `https://integrate.api.nvidia.com/v1`)
-* **Persistence:** SQLite relational database with idempotent schema migrations and cascading foreign keys
+* **Persistence:** hosted Supabase Postgres + pgvector (Alembic migrations, RLS). Free-tier deploy plan: `docs/09_FREE_DEPLOYMENT.md`
 * **Frontend UI:** Vanilla CSS (editorial hard-edge design system — DM Serif Display / Schibsted Grotesk / JetBrains Mono) + Vanilla JS (Reactive DOM & SSE streaming)
 
 ---

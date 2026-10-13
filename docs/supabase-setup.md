@@ -13,8 +13,12 @@ Dashboard → **Project Settings → API Keys**.
 | `web/.env.local` | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` (prod: the real origin) |
 | `.env` (API) | `SUPABASE_URL` | same URL as above |
 | `.env` (API) | `WEB_ORIGINS` | `http://localhost:3000` (comma-separated) |
+| `.env` (API) | `DATABASE_URL` | **Connect → Session pooler** URI (port 5432), scheme changed to `postgresql+asyncpg://` |
+| `.env` (API) | `SUPABASE_SECRET_KEY` | `sb_secret_…`, so account deletion also removes the login |
 
-The **secret key never goes into `web/`**: every `NEXT_PUBLIC_*` variable ships to the browser. The API needs no key at all; it verifies tokens with the project's public JWKS (`<url>/auth/v1/.well-known/jwks.json`).
+The **secret key never goes into `web/`**: every `NEXT_PUBLIC_*` variable ships to the browser. The API verifies tokens with the project's public JWKS (`<url>/auth/v1/.well-known/jwks.json`); it uses the secret key only for `DELETE /me`.
+
+Use the session pooler, not the direct `db.<ref>.supabase.co` host, which is IPv6-only. Then create the tables once, and again after each new migration: `uv run alembic upgrade head`. Never point `TEST_DATABASE_URL` at Supabase: the integration tests drop every table, and `tests/integration/conftest.py` refuses Supabase hosts for that reason.
 
 Until both web variables are set, the app runs in dev mode: `/app` is open, and the auth screen shows the "Skip login for now" strip. Setting them turns enforcement on. The API is the same: `SUPABASE_URL` empty = dev user; `ENVIRONMENT=production` refuses to start without it.
 
@@ -28,7 +32,8 @@ Dashboard → **Authentication**:
   - Site URL: `http://localhost:3000` (prod: the real origin)
   - Redirect URLs: `http://localhost:3000/**` and the production origin `/**`. Nothing else.
 - **JWT Keys**: new projects use asymmetric signing keys by default; keep that. (Legacy HS256 projects: set `SUPABASE_LEGACY_JWT_SECRET` on the API only.)
-- **Emails → SMTP**: for production, configure custom SMTP (Resend/Postmark). The built-in sender is rate-limited and meant for testing.
+- **Emails → SMTP**: **required before launch.** With *Confirm email* on, every sign-up needs an email, and the built-in sender only allows a few emails an hour. Set up custom SMTP (Resend or Postmark free tiers; verify your sending domain with SPF/DKIM), then raise **Rate Limits → emails sent per hour**.
+- **Multi-Factor → TOTP (App Authenticator)**: enabled. Users enrol under Account → Security. Once a user has a verified factor, a password-only session (`aal1`) is sent to `/auth/mfa` by the web app and gets `403 mfa_required` from the API, which reads `auth.mfa_factors` directly.
 - **Attack Protection → Captcha**: Cloudflare Turnstile before launch (needs the widget added to the auth form; planned in Phase 3).
 
 ## 3. How the flows land in the app
@@ -44,4 +49,4 @@ To use token-hash links instead of PKCE (e.g. the user opens the email on anothe
 
 ## 4. Calling the API
 
-The browser sends `Authorization: Bearer <access_token>` (from `supabase.auth.getSession()`) to `/api/*`, which Next.js rewrites to FastAPI. FastAPI (`backend/app/auth.py`) verifies the signature, `iss`, `aud=authenticated` and `exp`, takes the algorithm from the JWK (never the token header), and uses `sub` as the owner id. Another user's project returns 404.
+The browser sends `Authorization: Bearer <access_token>` (from `supabase.auth.getSession()`) to `/api/*`, which Next.js rewrites to FastAPI. FastAPI (`apps/api/src/deno_api/auth.py`) verifies the signature, `iss`, `aud=authenticated` and `exp`, takes the algorithm from the JWK (never the token header), and uses `sub` as the owner id. Another user's project returns 404.

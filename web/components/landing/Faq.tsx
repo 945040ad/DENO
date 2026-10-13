@@ -3,9 +3,9 @@
 import { useState } from 'react';
 
 const ITEMS: { q: string; a: string }[] = [
-  { q: 'Will this get my Reddit account banned?', a: "That's the entire point of the product. Deno never automates a single action, checks each community's current rules and promo ratio before drafting, and refuses to ship a post that hard-violates one. The Ban Risk Score is the number you check before you send." },
-  { q: 'Is it just ChatGPT with a prompt?', a: "No. The scoring engines are deterministic code, not prompts: an 18-pattern structural detector, a vocabulary density scorer, and Burrows' Delta stylometry measuring the distance between a draft and your own writing. The model drafts; the maths decides whether it ships." },
-  { q: 'What if the verdict is Kill?', a: 'Then you saved a year. You get the Critic\'s full argument with sources, the pivot vectors that scored highest, and the option to re-run against a reframed idea. A tool that never says Kill is a tool that tells you nothing.' },
+  { q: 'Will this get my Reddit account banned?', a: "That's the entire point of the product. Deno never automates a single action, checks each community's posted rules and promo limits before drafting, and refuses to ship a post that hard-violates one. The Ban Risk Score is the number you check before you send." },
+  { q: 'Is it just ChatGPT with a prompt?', a: "No. The scoring engines are deterministic code, not prompts: a 20-pattern structural detector, a vocabulary density scorer, and Burrows' Delta stylometry measuring the distance between a draft and your own writing. The model drafts; the maths decides whether it ships." },
+  { q: 'What if the verdict is Kill?', a: 'Then you saved a year. You get the critic\'s argument with its sources, every claim that was dropped and why, and you can re-run a reframed idea. A tool that never says Kill is a tool that tells you nothing.' },
   { q: 'Do I need an existing audience?', a: 'No — zero followers is the assumed starting state. The calendar is built around other people\'s communities, which is where the first hundred users actually come from when nobody knows your name yet.' },
 ];
 

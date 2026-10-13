@@ -102,7 +102,7 @@ export function AuthScreen({ initialMode, next, initialError, authEnabled }: Pro
         setPending({
           label: 'AUTHENTICATING',
           title: 'Opening your workspace…',
-          body: 'Restoring your last run: BUILD verdict at 84% confidence, day 06 draft queued. Nothing was posted while you were away.',
+          body: 'Loading your projects, verdicts and drafts. Nothing was posted while you were away.',
         });
         window.location.assign(next);
         return;
@@ -128,24 +128,6 @@ export function AuthScreen({ initialMode, next, initialError, authEnabled }: Pro
     } finally {
       setBusy(false);
     }
-  }
-
-  async function onForgotPassword(e: React.MouseEvent) {
-    e.preventDefault();
-    setError(null);
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !EMAIL_RE.test(trimmedEmail)) return showError('Enter your email above, then hit Forgot password.');
-    const supabase = createClient();
-    if (!supabase) return showError('Sign-in is not configured yet. Use the skip link above for now.');
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-      redirectTo: callbackUrl('/auth/reset'),
-    });
-    if (resetError) return showError(resetError.message);
-    setPending({
-      label: 'CHECK YOUR INBOX',
-      title: 'One link to reset your password.',
-      body: `If ${trimmedEmail} has a Deno account, a reset link is on its way. It expires in an hour.`,
-    });
   }
 
   async function onGoogle() {
@@ -184,8 +166,8 @@ export function AuthScreen({ initialMode, next, initialError, authEnabled }: Pro
 
             <div id="heading-signup" className="auth-heading" hidden={isLogin}>
               <span className="tag tag--lime">Stage 1 · Free · No card</span>
-              <h1 className="display auth-heading__title">Validate your first idea in ninety seconds.</h1>
-              <p className="prose auth-heading__sub">One account, eight adversarial agents, unlimited ideas. Ban Risk and the 30-day calendar unlock later — only if you want them.</p>
+              <h1 className="display auth-heading__title">Validate your first idea in a few minutes.</h1>
+              <p className="prose auth-heading__sub">One account, five validations a month, free during the beta. The content calendar and Ban Risk Studio are included.</p>
             </div>
 
             <div id="pending-panel" className="auth-pending rise" hidden={!pending}>
@@ -262,12 +244,12 @@ export function AuthScreen({ initialMode, next, initialError, authEnabled }: Pro
                 <span className="mono-plain" style={{ color: 'var(--on-dark-dim)' }}>deno/workspace</span>
               </div>
               <div className="auth-visual__verdict">
-                <div className="display" style={{ fontSize: 'clamp(44px,5.6vw,68px)', color: 'var(--lime)' }}>BUILD</div>
+                <div className="display" style={{ fontSize: 'clamp(44px,5.6vw,68px)', color: 'var(--lime)' }}>PIVOT</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 10 }}>
-                  <span className="display" style={{ fontSize: 28 }}>84%</span>
-                  <span className="mono-plain" style={{ color: 'var(--on-dark-dim)' }}>Calibrated confidence</span>
+                  <span className="display" style={{ fontSize: 28 }}>65%</span>
+                  <span className="mono-plain" style={{ color: 'var(--on-dark-dim)' }}>Confidence from evidence</span>
                 </div>
-                <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.55, color: 'var(--on-dark-soft)' }}>Pre-merge race-condition review for Go microservices. 24 claims sourced, 6 dropped as unverifiable.</p>
+                <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.55, color: 'var(--on-dark-soft)' }}>Example: churn prediction for small SaaS. 89 posts read, 21 claims verified, 12 competitor mentions.</p>
               </div>
               <div className="auth-visual__list">
                 <div><span className="mono" style={{ color: 'var(--lime)' }}>30-day plan</span><span>Day 06 draft ready to send</span><span className="mono-plain">Ban risk 91</span></div>
@@ -284,17 +266,17 @@ export function AuthScreen({ initialMode, next, initialError, authEnabled }: Pro
 
             <div id="visual-signup" className="auth-visual__panel" hidden={isLogin}>
               <span className="mono" style={{ color: 'var(--lime)' }}>What the free account includes</span>
-              <div className="display" style={{ fontSize: 'clamp(26px,3vw,40px)', lineHeight: 1.04 }}>Validation is free. Forever. Not a trial.</div>
+              <div className="display" style={{ fontSize: 'clamp(26px,3vw,40px)', lineHeight: 1.04 }}>Free during the beta. No card.</div>
               <div className="auth-visual__features">
-                <div><span className="mono" style={{ color: 'var(--lime)' }}>01</span><span>Eight-agent validation DAG, unlimited ideas <span style={{ color: 'var(--on-dark-dim)' }}>— one of the agents is hostile by design.</span></span></div>
-                <div><span className="mono" style={{ color: 'var(--lime)' }}>02</span><span>Build / Pivot / Kill verdict <span style={{ color: 'var(--on-dark-dim)' }}>— with the top three arguments on each side.</span></span></div>
-                <div><span className="mono" style={{ color: 'var(--lime)' }}>03</span><span>Bottom-up TAM / SAM / SOM <span style={{ color: 'var(--on-dark-dim)' }}>— auditable line by line.</span></span></div>
-                <div><span className="mono" style={{ color: 'var(--lime)' }}>04</span><span>Source ledger with retrieval timestamps <span style={{ color: 'var(--on-dark-dim)' }}>— unsourced claims are dropped, never guessed.</span></span></div>
-                <div className="auth-visual__features-dim"><span className="mono">05</span><span>Ban Risk Score, 30-day calendar and Story Bank — Stage 2, $20/mo, 25 beta seats.</span></div>
+                <div><span className="mono" style={{ color: 'var(--lime)' }}>01</span><span>Five validations a month <span style={{ color: 'var(--on-dark-dim)' }}>— one of the agents is a critic by design.</span></span></div>
+                <div><span className="mono" style={{ color: 'var(--lime)' }}>02</span><span>Build / Pivot / Kill verdict <span style={{ color: 'var(--on-dark-dim)' }}>— or &ldquo;not enough evidence&rdquo; when that&apos;s the truth.</span></span></div>
+                <div><span className="mono" style={{ color: 'var(--lime)' }}>03</span><span>Real posts from Reddit, HN, X and Product Hunt <span style={{ color: 'var(--on-dark-dim)' }}>— each one linked.</span></span></div>
+                <div><span className="mono" style={{ color: 'var(--lime)' }}>04</span><span>Source ledger <span style={{ color: 'var(--on-dark-dim)' }}>— claims that fail verification are dropped, never guessed.</span></span></div>
+                <div className="auth-visual__features-dim"><span className="mono">05</span><span>Ban Risk Score, content calendar and Story Bank — included during the beta.</span></div>
               </div>
               <div className="auth-visual__cta">
                 <span className="display" style={{ fontSize: 22, lineHeight: 1.1 }}>Find out tonight.<br />Post on Monday.</span>
-                <span className="mono">~90 SEC<br />RUNTIME</span>
+                <span className="mono">~3–6 MIN<br />RUNTIME</span>
               </div>
             </div>
 

@@ -26,6 +26,11 @@ class PermissionDenied(DenoError):
     message = "You don't have access to this."
 
 
+class MfaRequired(PermissionDenied):
+    code = "mfa_required"
+    message = "Enter your two-factor code to continue."
+
+
 class InvalidInput(DenoError):
     code = "invalid_input"
     message = "The request is invalid."

@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     database_url: str = Field(default="", description="postgresql+asyncpg://… (Supabase Postgres)")
     valkey_url: str = "redis://127.0.0.1:6379/0"
     searxng_url: str = "http://127.0.0.1:8890"
+    # Send a Google ID token to SearXNG when it runs as a private Cloud Run service (docs/09 §5.3).
+    searxng_gcp_auth: bool = False
+
+    # --- Jobs (docs/09 §4) ---
+    # taskiq: Valkey queue + worker process (compose / VPS). cloudrun_job: one Cloud Run Job
+    # execution per graph run (free tier, no always-on worker).
+    task_runner: Literal["taskiq", "cloudrun_job"] = "taskiq"
+    cloudrun_job: str = ""  # projects/<project>/locations/<region>/jobs/<name>
+    # Cloud Scheduler -> POST /internal/cron/*: the OIDC audience and the caller's service account.
+    # Both empty = the cron endpoints answer 404 (the taskiq scheduler runs maintenance instead).
+    cron_oidc_audience: str = ""
+    cron_service_account: str = ""
 
     # --- Sources (Phase 5) ---
     # Hosts whose robots.txt disallows bots but the operator has decided (after legal review)
@@ -121,6 +133,7 @@ class Settings(BaseSettings):
                 "SUPABASE_URL": bool(self.supabase_url),
                 "NVIDIA_NIM_API_KEY": bool(self.nvidia_nim_api_key.get_secret_value()),
                 "DATABASE_URL": self.database_url.startswith("postgresql"),
+                "CLOUDRUN_JOB": self.task_runner != "cloudrun_job" or self.cloudrun_job.count("/") == 5,
             }.items()
             if not ok
         ]
