@@ -2,20 +2,41 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import itertools
 import math
 import re
 from collections.abc import Sequence
-from typing import Protocol
+from typing import NoReturn, Protocol
 
 from langchain_core.documents import Document
 from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings, NVIDIARerank
 
+from deno_core.errors import RateLimited, UpstreamUnavailable
+from deno_core.logging import get_logger
 from deno_llm.limiter import Limiter, NullLimiter
+
+log = get_logger(__name__)
+
+_NIM_STATUS = re.compile(r"^\[(\d{3})\]")
+
+
+def _raise_nim(exc: Exception) -> NoReturn:
+    """NIM's LangChain client raises bare ``Exception("[502] Bad Gateway…")``. Re-raise 429/5xx as the errors
+    the run executor retries (the graph resumes from its checkpoint); anything else unchanged."""
+    m = _NIM_STATUS.match(str(exc))
+    status = int(m.group(1)) if m else 0
+    if status == 429:
+        raise RateLimited(f"NIM {status}") from exc
+    if status >= 500:
+        raise UpstreamUnavailable(f"NIM {status}") from exc
+    raise exc
+
 
 EMBED_BATCH = 32
 RERANK_BATCH = 64
+RERANK_ATTEMPTS = 3
 
 
 class Embedder(Protocol):
@@ -44,19 +65,28 @@ class NimEmbedder:
         out: list[list[float]] = []
         for start in range(0, len(texts), EMBED_BATCH):
             await self._limiter.acquire()
-            out.extend(await self._client.aembed_documents(list(texts[start : start + EMBED_BATCH])))
+            try:
+                out.extend(await self._client.aembed_documents(list(texts[start : start + EMBED_BATCH])))
+            except Exception as exc:
+                _raise_nim(exc)
         return out
 
     async def embed_query(self, text: str) -> list[float]:
         await self._limiter.acquire()
-        return await self._client.aembed_query(text)
+        try:
+            return await self._client.aembed_query(text)
+        except Exception as exc:
+            _raise_nim(exc)
 
     async def embed_queries(self, texts: Sequence[str]) -> list[list[float]]:
         """Several queries in one request (query-side embedding)."""
         out: list[list[float]] = []
         for start in range(0, len(texts), EMBED_BATCH):
             await self._limiter.acquire()
-            out.extend(await self._client._aembed(list(texts[start : start + EMBED_BATCH]), model_type="query"))
+            try:
+                out.extend(await self._client._aembed(list(texts[start : start + EMBED_BATCH]), model_type="query"))
+            except Exception as exc:
+                _raise_nim(exc)
         return out
 
 
@@ -72,10 +102,22 @@ class NimReranker:
             return []
         docs = [Document(page_content=t, metadata={"i": i}) for i, t in enumerate(texts)]
         client = self._client.model_copy(update={"top_n": min(top_n, len(texts))})
-        for _ in range(0, len(texts), RERANK_BATCH):
-            await self._limiter.acquire()
-        ranked = await client.acompress_documents(documents=docs, query=query)
-        return [(int(d.metadata["i"]), float(d.metadata.get("relevance_score", 0.0))) for d in ranked]
+        for attempt in range(RERANK_ATTEMPTS):
+            for _ in range(0, len(texts), RERANK_BATCH):
+                await self._limiter.acquire()
+            try:
+                ranked = await client.acompress_documents(documents=docs, query=query)
+            except Exception as exc:  # NIM raises bare Exception("[502] Bad Gateway…") for HTTP errors
+                log.warning("rerank_failed", attempt=attempt + 1, error=str(exc)[:200])
+                if attempt + 1 < RERANK_ATTEMPTS:
+                    await asyncio.sleep(2**attempt)
+                continue
+            return [(int(d.metadata["i"]), float(d.metadata.get("relevance_score", 0.0))) for d in ranked]
+        # Reranking only refines an order that hybrid retrieval already fused (RRF), so an upstream outage
+        # degrades quality instead of failing the run: keep the fused order.
+        log.warning("rerank_fallback_fused_order", candidates=len(texts))
+        n = min(top_n, len(texts))
+        return [(i, 1.0 - i / n) for i in range(n)]
 
 
 # ---- offline stand-ins (unit tests, CI evals) ------------------------------------

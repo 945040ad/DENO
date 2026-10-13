@@ -37,7 +37,24 @@ _setup_done = False
 
 
 def _psycopg_url(url: str) -> str:
-    return url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    """SQLAlchemy URL -> libpq key=value conninfo.
+
+    Parsed with SQLAlchemy (as the API does) rather than handed to libpq as a URI: libpq rejects
+    passwords with unescaped ``?``, ``&`` or ``/``, which SQLAlchemy accepts.
+    """
+    from psycopg.conninfo import make_conninfo
+    from sqlalchemy.engine import make_url
+
+    u = make_url(url)
+    params: dict[str, Any] = {
+        "host": u.host,
+        "port": u.port,
+        "dbname": u.database,
+        "user": u.username,
+        "password": u.password,
+    }
+    params.update({k: v if isinstance(v, str) else v[-1] for k, v in u.query.items()})
+    return make_conninfo("", **{k: v for k, v in params.items() if v is not None})
 
 
 @contextlib.asynccontextmanager

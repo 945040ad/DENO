@@ -205,13 +205,34 @@ function IntakeScreen({
   const [handle, setHandle] = useState('');
   const [running, setRunning] = useState(false);
   const [pct, setPct] = useState(0);
-  const [stageState, setStageState] = useState<{ status: 'queued' | 'running' | 'done'; started?: number; seconds?: number }[]>(
+  const [stageState, setStageState] = useState<{ status: 'queued' | 'running' | 'done' | 'failed'; started?: number; seconds?: number }[]>(
     () => STAGES.map(() => ({ status: 'queued' })),
   );
   const [log, setLog] = useState('waiting for an idea');
+  const [failed, setFailed] = useState(false);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [quiet, setQuiet] = useState(false);
   const abort = useRef<AbortController | null>(null);
+  // Progress creeps toward this ceiling between events, so a slow stage never looks frozen.
+  const cap = useRef(0);
+  const lastEvent = useRef(0);
 
   useEffect(() => () => abort.current?.abort(), []);
+
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      setQuiet(lastEvent.current > 0 && t - lastEvent.current > 45_000);
+      setPct((p) => (p < cap.current ? Math.min(cap.current, p + 0.35) : p));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const elapsed = startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
+  const clock = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
 
   function follow(projectId: string, runId: string): Promise<void> {
     abort.current?.abort();
@@ -227,10 +248,12 @@ function IntakeScreen({
           } catch {
             return;
           }
+          lastEvent.current = Date.now();
           if (ev.type === 'node_started' && ev.node) {
             const k = stageOf(ev.node);
             if (k >= 0) {
-              setPct((p) => Math.max(p, Math.round(((k + 0.5) / STAGES.length) * 100)));
+              cap.current = Math.max(cap.current, Math.round(((k + 1) / STAGES.length) * 100) - 3);
+              setPct((p) => Math.max(p, Math.round((k / STAGES.length) * 100) + 1));
               setStageState((s) => s.map((x, i) => (i === k && x.status === 'queued' ? { status: 'running', started: Date.now() } : x)));
             }
             const [base, detail] = ev.node.split(':');
@@ -250,6 +273,8 @@ function IntakeScreen({
           } else if (ev.type === 'status' && ev.status && TERMINAL.includes(ev.status)) {
             controller.abort();
             if (ev.status === 'failed' || ev.status === 'cancelled') {
+              setFailed(true);
+              setStageState((s) => s.map((x) => (x.status === 'running' ? { status: 'failed' } : x)));
               setLog(ev.status === 'failed' ? `run failed (${String(ev.error_code ?? 'error')}) · try again in a minute` : 'cancelled');
               resolve();
               return;
@@ -272,14 +297,24 @@ function IntakeScreen({
     const text = idea.trim();
     if (text.length < 5) return;
     setRunning(true);
-    setPct(2);
+    setFailed(false);
+    setStartedAt(Date.now());
+    setNow(Date.now());
+    setPct(1);
+    cap.current = 4;
+    lastEvent.current = 0;
     setStageState(STAGES.map(() => ({ status: 'queued' })));
-    setLog('queued');
+    setLog('saving your idea…');
     try {
       const project = await api.createProject(text, handle.trim() || null);
+      setLog('request received · starting a research worker (the first one can take ~30–60 s)…');
+      setPct((p) => Math.max(p, 3));
+      cap.current = 9;
       const run = await api.startRun(project.id);
+      lastEvent.current = Date.now();
       await follow(project.id, run.run_id);
     } catch (err) {
+      setFailed(true);
       setLog(err instanceof Error ? err.message : String(err));
     } finally {
       setRunning(false);
@@ -318,7 +353,14 @@ function IntakeScreen({
               disabled={running || idea.trim().length < 5}
               style={{ flex: 'none', background: 'var(--lime)', border: 0, fontFamily: 'var(--sans)', fontSize: 15, fontWeight: 700, padding: '14px 24px', cursor: running ? 'wait' : 'pointer', color: 'var(--ink)', opacity: idea.trim().length < 5 ? 0.55 : 1 }}
             >
-              {running ? 'Researching…' : 'Run validation →'}
+              {running ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                  <span className="dv-orb ink" aria-hidden />
+                  Researching… <span className="dv-mono" style={{ fontSize: 12, fontWeight: 400 }}>{clock}</span>
+                </span>
+              ) : (
+                'Run validation →'
+              )}
             </button>
           </div>
         </div>
@@ -352,25 +394,36 @@ function IntakeScreen({
         <div className="dv-grid-bg" />
         <div className="dv-inner">
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
-            <span className="dv-dark-label">RESEARCH GRAPH · {running ? 'LIVE' : pct === 100 ? 'DONE' : 'IDLE'}</span>
-            <span className="dv-serif" style={{ fontSize: 32, lineHeight: 1 }}>{pct}%</span>
+            <span className="dv-dark-label" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              {running && <span className="dv-orb" aria-hidden />}
+              RESEARCH GRAPH · {running ? `LIVE · ${clock}` : failed ? 'FAILED' : pct === 100 ? 'DONE' : 'IDLE'}
+            </span>
+            <span className="dv-serif" style={{ fontSize: 32, lineHeight: 1 }}>{Math.round(pct)}%</span>
           </div>
           <div style={{ height: 8, background: 'rgba(250,248,243,.14)', marginBottom: 10 }}>
-            <div style={{ height: '100%', width: `${pct}%`, background: 'var(--lime)', transition: 'width .6s cubic-bezier(.2,.8,.2,1)' }} />
+            <div
+              className={running ? 'dv-shimmer' : undefined}
+              style={{ height: '100%', width: `${pct}%`, background: failed ? 'var(--red)' : 'var(--lime)', transition: 'width 1s linear' }}
+            />
           </div>
-          <p className="dv-mono dv-dim" style={{ margin: '0 0 22px', fontSize: 11.5 }}>{log}</p>
+          <p className="dv-mono dv-dim" role="status" aria-live="polite" style={{ margin: '0 0 22px', fontSize: 11.5 }}>
+            {log}
+            {running && quiet && ' · still working, the AI queue is slow right now'}
+          </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {STAGES.map((stage, i) => {
               const st = stageState[i];
-              const cls = st.status === 'done' ? 'done' : st.status === 'running' ? 'now' : 'wait';
+              const cls = st.status === 'done' ? 'done' : st.status === 'running' ? 'now' : st.status === 'failed' ? 'bad' : 'wait';
+              const stageSecs = st.status === 'running' && st.started ? Math.max(0, Math.floor((now - st.started) / 1000)) : 0;
               return (
                 <div key={stage.label} className={`dv-row ${cls}`}>
                   <span className="dv-mono" style={{ fontSize: 10.5, flex: 'none', color: st.status === 'done' ? 'var(--lime)' : undefined }}>
-                    {String(i + 1).padStart(2, '0')} {st.status === 'done' ? '✓' : st.status === 'running' ? '⟳' : '·'}
+                    {String(i + 1).padStart(2, '0')}{' '}
+                    {st.status === 'done' ? '✓' : st.status === 'running' ? <span className="dv-spin">⟳</span> : st.status === 'failed' ? '✕' : '·'}
                   </span>
                   <span style={{ flex: 1, minWidth: 0 }}>{stage.label}</span>
                   <span className="dv-mono" style={{ fontSize: 10.5, color: st.status === 'running' ? undefined : '#9AA5A0' }}>
-                    {st.status === 'done' ? (st.seconds ? `${st.seconds.toFixed(1)}s` : 'done') : st.status === 'running' ? 'running' : 'queued'}
+                    {st.status === 'done' ? (st.seconds ? `${st.seconds.toFixed(1)}s` : 'done') : st.status === 'running' ? `running · ${stageSecs}s` : st.status === 'failed' ? 'failed' : 'queued'}
                   </span>
                 </div>
               );
