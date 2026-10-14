@@ -18,11 +18,14 @@ import {
   type GatePlatform,
   type Plan,
   type Project,
+  type Run,
   type Report,
   type StreamEvent,
 } from '@/lib/api';
 
 type Screen = 0 | 1 | 2 | 3;
+// Wall clock for event handlers (kept out of render so the React compiler's purity check holds).
+const clockNow = () => Date.now();
 const TABS = ['01 INTAKE', '02 VERDICT', '03 CALENDAR', '04 BAN RISK'];
 
 /** Transparent 0–100 score from real gate findings: −15 per blocking issue, −5 per warning. */
@@ -57,7 +60,7 @@ export function Workspace() {
     setRunId(null);
     setReport(null);
     setPlan(null);
-    const runs = await api.listRuns(id);
+    const runs = await api.listRuns(id); // newest first
     const done = runs.find((r) => r.status === 'succeeded' || r.status === 'awaiting_review');
     if (done) {
       setRunId(done.id);
@@ -66,8 +69,9 @@ export function Workspace() {
     const plans = await api.listPlans(id);
     const ready = plans.find((p) => p.status === 'succeeded');
     if (ready) setPlan(await api.plan(ready.id));
-    return Boolean(done);
+    return { done: Boolean(done), latest: runs[0] ?? null };
   }, []);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -119,9 +123,17 @@ export function Workspace() {
             projects={projects}
             currentProjectId={projectId}
             onOpenProject={async (id) => {
-              const has = await openProject(id).catch(() => false);
-              if (has) setScreen(1);
-              else showToast('That idea has no finished validation yet.');
+              const opened = await openProject(id).catch(() => null);
+              if (!opened) {
+                showToast('Could not load that idea. Check your connection and try again.');
+                return { open: false } as const;
+              }
+              if (opened.done) {
+                setScreen(1);
+                return { open: false } as const;
+              }
+              // No finished run: the intake screen shows live progress, or the failure with a retry.
+              return { open: true, run: opened.latest } as const;
             }}
             onValidated={(pid, rid, r) => {
               api.listProjects().then((p) => setProjects(p.items)).catch(() => undefined);
@@ -198,7 +210,7 @@ function IntakeScreen({
 }: {
   projects: Project[];
   currentProjectId: string | null;
-  onOpenProject: (id: string) => void;
+  onOpenProject: (id: string) => Promise<{ open: false } | { open: true; run: Run | null }>;
   onValidated: (projectId: string, runId: string, report: Report | null) => void;
 }) {
   const [idea, setIdea] = useState('');
@@ -213,6 +225,8 @@ function IntakeScreen({
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [quiet, setQuiet] = useState(false);
+  // Set when a past idea without a finished run is opened: "Run validation" re-runs that project.
+  const [retryProject, setRetryProject] = useState<{ id: string; idea: string } | null>(null);
   const abort = useRef<AbortController | null>(null);
   // Progress creeps toward this ceiling between events, so a slow stage never looks frozen.
   const cap = useRef(0);
@@ -231,6 +245,39 @@ function IntakeScreen({
     return () => clearInterval(id);
   }, [running]);
 
+  async function openPast(project: Project) {
+    if (running) return;
+    const opened = await onOpenProject(project.id);
+    if (!opened.open) return;
+    const { run } = opened;
+    setIdea(project.idea);
+    setHandle('');
+    setRetryProject({ id: project.id, idea: project.idea });
+    setStageState(STAGES.map(() => ({ status: 'queued' })));
+    if (run && (run.status === 'queued' || run.status === 'running')) {
+      setFailed(false);
+      setRunning(true);
+      setStartedAt(new Date(run.started_at ?? run.created_at).getTime());
+      setNow(clockNow());
+      setPct(1);
+      cap.current = 9;
+      lastEvent.current = clockNow();
+      setLog('reconnecting to the running validation…');
+      void follow(project.id, run.id).finally(() => setRunning(false));
+      return;
+    }
+    setPct(0);
+    setStartedAt(null);
+    setFailed(Boolean(run && run.status === 'failed'));
+    setLog(
+      run && run.status === 'failed'
+        ? `last run failed (${run.error_code ?? 'error'}) · press Run validation to retry this idea`
+        : run && run.status === 'cancelled'
+          ? 'last run was cancelled · press Run validation to run it again'
+          : 'not validated yet · press Run validation',
+    );
+  }
+
   const elapsed = startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
   const clock = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
 
@@ -248,13 +295,13 @@ function IntakeScreen({
           } catch {
             return;
           }
-          lastEvent.current = Date.now();
+          lastEvent.current = clockNow();
           if (ev.type === 'node_started' && ev.node) {
             const k = stageOf(ev.node);
             if (k >= 0) {
               cap.current = Math.max(cap.current, Math.round(((k + 1) / STAGES.length) * 100) - 3);
               setPct((p) => Math.max(p, Math.round((k / STAGES.length) * 100) + 1));
-              setStageState((s) => s.map((x, i) => (i === k && x.status === 'queued' ? { status: 'running', started: Date.now() } : x)));
+              setStageState((s) => s.map((x, i) => (i === k && x.status === 'queued' ? { status: 'running', started: clockNow() } : x)));
             }
             const [base, detail] = ev.node.split(':');
             setLog(`${NODE_TEXT[base] ?? base}${detail ? ` · ${detail.replace('_', ' ')}` : ''}`);
@@ -263,7 +310,7 @@ function IntakeScreen({
             if (k >= 0) {
               setPct((p) => Math.max(p, Math.round(((k + 1) / STAGES.length) * 100) - 2));
               setStageState((s) =>
-                s.map((x, i) => (i === k ? { status: 'done', seconds: x.started ? (Date.now() - x.started) / 1000 : Number(ev.seconds ?? 0) } : i < k && x.status !== 'done' ? { ...x, status: 'done' } : x)),
+                s.map((x, i) => (i === k ? { status: 'done', seconds: x.started ? (clockNow() - x.started) / 1000 : Number(ev.seconds ?? 0) } : i < k && x.status !== 'done' ? { ...x, status: 'done' } : x)),
               );
             }
           } else if (ev.type === 'source') {
@@ -298,20 +345,22 @@ function IntakeScreen({
     if (text.length < 5) return;
     setRunning(true);
     setFailed(false);
-    setStartedAt(Date.now());
-    setNow(Date.now());
+    setStartedAt(clockNow());
+    setNow(clockNow());
     setPct(1);
     cap.current = 4;
     lastEvent.current = 0;
     setStageState(STAGES.map(() => ({ status: 'queued' })));
     setLog('saving your idea…');
     try {
-      const project = await api.createProject(text, handle.trim() || null);
+      const reuse = retryProject && retryProject.idea.trim() === text ? retryProject.id : null;
+      const project = reuse ? { id: reuse } : await api.createProject(text, handle.trim() || null);
+      setRetryProject(null);
       setLog('request received · starting a research worker (the first one can take ~30–60 s)…');
       setPct((p) => Math.max(p, 3));
       cap.current = 9;
       const run = await api.startRun(project.id);
-      lastEvent.current = Date.now();
+      lastEvent.current = clockNow();
       await follow(project.id, run.run_id);
     } catch (err) {
       setFailed(true);
@@ -378,7 +427,7 @@ function IntakeScreen({
               {projects.slice(0, 8).map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => onOpenProject(p.id)}
+                  onClick={() => void openPast(p)}
                   style={{ textAlign: 'left', border: '1px solid rgba(16,22,19,.2)', background: p.id === currentProjectId ? 'var(--paper-2)' : 'var(--paper)', padding: '10px 12px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'baseline' }}
                 >
                   <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
