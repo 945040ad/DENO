@@ -7,7 +7,7 @@ import {
   blockingFindings,
   safeHref,
   signal,
-  streamEvents,
+  followEvents,
   TERMINAL,
   warningFindings,
   type Audit,
@@ -332,64 +332,73 @@ function IntakeScreen({
   const elapsed = startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
   const clock = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
 
-  function follow(projectId: string, runId: string): Promise<void> {
+  async function follow(projectId: string, runId: string): Promise<void> {
     abort.current?.abort();
     const controller = new AbortController();
     abort.current = controller;
-    return new Promise((resolve) => {
-      streamEvents(
-        `/api/v1/runs/${encodeURIComponent(runId)}/events`,
-        (raw) => {
-          let ev: StreamEvent;
-          try {
-            ev = JSON.parse(raw) as StreamEvent;
-          } catch {
-            return;
+    let finished = false;
+
+    // Terminal state, from the stream's status event or (if the connection dropped) from the API.
+    const finish = async (status: string, errorCode?: string | null) => {
+      if (finished) return;
+      finished = true;
+      controller.abort();
+      if (status === 'failed' || status === 'cancelled') {
+        setFailed(true);
+        setStageState((s) => s.map((x) => (x.status === 'running' ? { status: 'failed' } : x)));
+        setLog(status === 'failed' ? `run failed (${String(errorCode ?? 'error')}) · try again in a minute` : 'cancelled');
+        onChanged();
+        return;
+      }
+      setPct(100);
+      setStageState((s) => s.map((x) => ({ ...x, status: 'done' })));
+      const r = await api.report(runId).catch(() => null);
+      onValidated(projectId, runId, r);
+    };
+
+    await followEvents(
+      `/api/v1/runs/${encodeURIComponent(runId)}/events`,
+      (raw) => {
+        let ev: StreamEvent;
+        try {
+          ev = JSON.parse(raw) as StreamEvent;
+        } catch {
+          return;
+        }
+        lastEvent.current = clockNow();
+        if (ev.type === 'node_started' && ev.node) {
+          const k = stageOf(ev.node);
+          if (k >= 0) {
+            cap.current = Math.max(cap.current, Math.round(((k + 1) / STAGES.length) * 100) - 3);
+            setPct((p) => Math.max(p, Math.round((k / STAGES.length) * 100) + 1));
+            setStageState((s) => s.map((x, i) => (i === k && x.status === 'queued' ? { status: 'running', started: clockNow() } : x)));
           }
-          lastEvent.current = clockNow();
-          if (ev.type === 'node_started' && ev.node) {
-            const k = stageOf(ev.node);
-            if (k >= 0) {
-              cap.current = Math.max(cap.current, Math.round(((k + 1) / STAGES.length) * 100) - 3);
-              setPct((p) => Math.max(p, Math.round((k / STAGES.length) * 100) + 1));
-              setStageState((s) => s.map((x, i) => (i === k && x.status === 'queued' ? { status: 'running', started: clockNow() } : x)));
-            }
-            const [base, detail] = ev.node.split(':');
-            setLog(`${NODE_TEXT[base] ?? base}${detail ? ` · ${detail.replace('_', ' ')}` : ''}`);
-          } else if (ev.type === 'node_finished' && ev.node) {
-            const k = stageOf(ev.node);
-            if (k >= 0) {
-              setPct((p) => Math.max(p, Math.round(((k + 1) / STAGES.length) * 100) - 2));
-              setStageState((s) =>
-                s.map((x, i) => (i === k ? { status: 'done', seconds: x.started ? (clockNow() - x.started) / 1000 : Number(ev.seconds ?? 0) } : i < k && x.status !== 'done' ? { ...x, status: 'done' } : x)),
-              );
-            }
-          } else if (ev.type === 'source') {
-            setLog(`${ev.source}: ${ev.error === 'blocked_by_policy' ? 'skipped (site disallows bots)' : ev.error ? `partial · ${ev.error}` : `${ev.count} posts`}`);
-          } else if (ev.type === 'log' && ev.message) {
-            setLog(ev.message);
-          } else if (ev.type === 'status' && ev.status && TERMINAL.includes(ev.status)) {
-            controller.abort();
-            if (ev.status === 'failed' || ev.status === 'cancelled') {
-              setFailed(true);
-              setStageState((s) => s.map((x) => (x.status === 'running' ? { status: 'failed' } : x)));
-              setLog(ev.status === 'failed' ? `run failed (${String(ev.error_code ?? 'error')}) · try again in a minute` : 'cancelled');
-              onChanged();
-              resolve();
-              return;
-            }
-            setPct(100);
-            setStageState((s) => s.map((x) => ({ ...x, status: 'done' })));
-            api
-              .report(runId)
-              .then((r) => onValidated(projectId, runId, r))
-              .catch(() => onValidated(projectId, runId, null))
-              .finally(resolve);
+          const [base, detail] = ev.node.split(':');
+          setLog(`${NODE_TEXT[base] ?? base}${detail ? ` · ${detail.replace('_', ' ')}` : ''}`);
+        } else if (ev.type === 'node_finished' && ev.node) {
+          const k = stageOf(ev.node);
+          if (k >= 0) {
+            setPct((p) => Math.max(p, Math.round(((k + 1) / STAGES.length) * 100) - 2));
+            setStageState((s) =>
+              s.map((x, i) => (i === k ? { status: 'done', seconds: x.started ? (clockNow() - x.started) / 1000 : Number(ev.seconds ?? 0) } : i < k && x.status !== 'done' ? { ...x, status: 'done' } : x)),
+            );
           }
-        },
-        controller.signal,
-      ).catch(() => resolve());
-    });
+        } else if (ev.type === 'source') {
+          setLog(`${ev.source}: ${ev.error === 'blocked_by_policy' ? 'skipped (site disallows bots)' : ev.error ? `partial · ${ev.error}` : `${ev.count} posts`}`);
+        } else if (ev.type === 'log' && ev.message) {
+          setLog(ev.message);
+        } else if (ev.type === 'status' && ev.status && TERMINAL.includes(ev.status)) {
+          void finish(ev.status, ev.error_code as string | null | undefined);
+        }
+      },
+      controller.signal,
+      async () => TERMINAL.includes((await api.getRun(runId)).status),
+    );
+    // The connection ended without a status event (dropped, then the run finished): read it from the API.
+    if (!finished && abort.current === controller) {
+      const run = await api.getRun(runId).catch(() => null);
+      if (run && TERMINAL.includes(run.status)) await finish(run.status, run.error_code);
+    }
   }
 
   async function start() {
@@ -619,19 +628,27 @@ function VerdictScreen({
       const created = await api.createPlan(projectId, 14, runId);
       const controller = new AbortController();
       let drafted = 0;
-      await streamEvents(
+      const finished = async () => ['succeeded', 'failed', 'cancelled'].includes((await api.plan(created.plan_id)).status);
+      await followEvents(
         created.events_url,
         (raw) => {
-          const ev = JSON.parse(raw) as StreamEvent;
+          let ev: StreamEvent;
+          try {
+            ev = JSON.parse(raw) as StreamEvent;
+          } catch {
+            return;
+          }
           if (ev.type === 'log' && ev.message) setProgress(ev.message);
           if (ev.type === 'node_finished' && ev.node === 'brief_planner') setProgress(`${String(ev.briefs)} posts planned · writing and gating drafts…`);
           if (ev.type === 'node_finished' && ev.node === 'draft') setProgress(`${++drafted} drafts written and gated…`);
-          if (ev.type === 'status' && (ev.status === 'succeeded' || ev.status === 'failed')) controller.abort();
+          if (ev.type === 'status' && (ev.status === 'succeeded' || ev.status === 'failed' || ev.status === 'cancelled')) controller.abort();
         },
         controller.signal,
-      ).catch(() => undefined);
+        finished,
+      );
+      // Open the calendar only once the plan has really finished (never a half-written plan).
       const plan = await api.plan(created.plan_id);
-      if (plan.status === 'failed') throw new Error('The content plan failed. Try again in a minute.');
+      if (plan.status !== 'succeeded') throw new Error('The content plan failed. Try again in a minute.');
       onPlan(plan);
     } catch (err) {
       onToast(err instanceof Error ? err.message : String(err));

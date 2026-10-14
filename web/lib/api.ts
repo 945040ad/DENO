@@ -331,8 +331,15 @@ export const api = {
  * Authorization header can be sent. Resolves when the stream ends or the
  * signal aborts.
  */
-export async function streamEvents(path: string, onData: (data: string) => void, signal: AbortSignal): Promise<void> {
-  const res = await fetch(path, { headers: { Accept: 'text/event-stream', ...(await authHeaders()) }, signal });
+export async function streamEvents(
+  path: string,
+  onData: (data: string) => void,
+  signal: AbortSignal,
+  resume?: { lastEventId?: string; onId?: (id: string) => void },
+): Promise<void> {
+  const headers: Record<string, string> = { Accept: 'text/event-stream', ...(await authHeaders()) };
+  if (resume?.lastEventId) headers['Last-Event-ID'] = resume.lastEventId;
+  const res = await fetch(path, { headers, signal });
   if (!res.ok || !res.body) throw new ApiError(res.status, 'stream failed');
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = '';
@@ -344,13 +351,42 @@ export async function streamEvents(path: string, onData: (data: string) => void,
     while ((boundary = buffer.search(/\r?\n\r?\n/)) !== -1) {
       const block = buffer.slice(0, boundary);
       buffer = buffer.slice(boundary).replace(/^\r?\n\r?\n/, '');
-      const data = block
-        .split(/\r?\n/)
+      const lines = block.split(/\r?\n/);
+      const id = lines.find((line) => line.startsWith('id:'))?.slice(3).trim();
+      const data = lines
         .filter((line) => line.startsWith('data:'))
         .map((line) => line.slice(5).replace(/^ /, ''))
         .join('\n');
       if (data) onData(data);
+      if (id) resume?.onId?.(id);
     }
+  }
+}
+
+/**
+ * Follow a run/plan event stream until it has really finished. Long responses get cut by proxies
+ * (Vercel's rewrite, mobile networks), so when the connection ends early this asks `isDone()` and,
+ * if the work is still going, reconnects with `Last-Event-ID` (no events lost or repeated).
+ */
+export async function followEvents(
+  path: string,
+  onData: (data: string) => void,
+  signal: AbortSignal,
+  isDone: () => Promise<boolean>,
+): Promise<void> {
+  let lastEventId: string | undefined;
+  let delay = 1000;
+  for (;;) {
+    try {
+      await streamEvents(path, onData, signal, { lastEventId, onId: (id) => (lastEventId = id) });
+    } catch {
+      // dropped connection or a transient API error: fall through to the status check
+    }
+    if (signal.aborted) return;
+    if (await isDone().catch(() => false)) return;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    if (signal.aborted) return;
+    delay = Math.min(delay * 2, 8000);
   }
 }
 
