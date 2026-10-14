@@ -10,7 +10,15 @@ from fastapi import APIRouter, BackgroundTasks, Header, Query, Response, status
 from sqlalchemy import select
 
 from deno_api.deps import Scope
-from deno_api.v1.schemas import ProjectCreate, ProjectOut, ProjectPage, ProjectPatch, RunCreated, RunOut
+from deno_api.v1.schemas import (
+    LatestRunOut,
+    ProjectCreate,
+    ProjectOut,
+    ProjectPage,
+    ProjectPatch,
+    RunCreated,
+    RunOut,
+)
 from deno_core.db.enums import Plan, RunStatus, UsageKind
 from deno_core.db.models import Quota
 from deno_core.errors import Conflict, QuotaExceeded, RateLimited
@@ -33,7 +41,23 @@ async def list_projects(
     cursor: Annotated[str | None, Query(max_length=200)] = None,
 ) -> ProjectPage:
     page = await scope.list_projects(limit=limit, cursor=cursor)
-    return ProjectPage(items=[ProjectOut.model_validate(p) for p in page.items], next_cursor=page.next_cursor)
+    latest = await scope.latest_runs([p.id for p in page.items])
+    items = []
+    for p in page.items:
+        out = ProjectOut.model_validate(p)
+        if p.id in latest:
+            run, verdict = latest[p.id]
+            out.latest_run = LatestRunOut(
+                id=run.id,
+                status=run.status,
+                error_code=run.error_code,
+                created_at=run.created_at,
+                finished_at=run.finished_at,
+                verdict=verdict.verdict if verdict else None,
+                confidence=verdict.confidence if verdict else None,
+            )
+        items.append(out)
+    return ProjectPage(items=items, next_cursor=page.next_cursor)
 
 
 @router.get("/{project_id}")

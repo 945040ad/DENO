@@ -13,12 +13,24 @@ export type StoryCategory = 'scar' | 'metric' | 'turning_point' | 'defended_opin
 export type DraftStatus = 'draft' | 'gated' | 'approved' | 'rejected' | 'exported';
 export type GatePlatform = 'linkedin' | 'reddit' | 'x' | 'hn';
 
+export interface LatestRun {
+  id: string;
+  status: RunStatus;
+  error_code: string | null;
+  created_at: string;
+  finished_at: string | null;
+  verdict: VerdictKind | null;
+  confidence: number | null;
+}
+
 export interface Project {
   id: string;
   title: string;
   idea: string;
   status: string;
   created_at: string;
+  /** Newest validation run with its verdict; null when the idea was never run. */
+  latest_run?: LatestRun | null;
 }
 
 export interface Run {

@@ -132,6 +132,21 @@ class UserScope:
         items = rows[:limit]
         return Page(items, _encode_cursor(items[-1].created_at, items[-1].id) if more else None)
 
+    async def latest_runs(
+        self, project_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, tuple[m.ValidationRun, m.Verdict | None]]:
+        """Newest run of each project with its verdict (if any), in one query."""
+        if not project_ids:
+            return {}
+        stmt = (
+            select(m.ValidationRun, m.Verdict)
+            .outerjoin(m.Verdict, m.Verdict.run_id == m.ValidationRun.id)
+            .where(m.ValidationRun.user_id == self.user_id, m.ValidationRun.project_id.in_(project_ids))
+            .order_by(m.ValidationRun.project_id, m.ValidationRun.created_at.desc())
+            .distinct(m.ValidationRun.project_id)
+        )
+        return {run.project_id: (run, verdict) for run, verdict in (await self.session.execute(stmt)).all()}
+
     async def update_project(
         self, project_id: uuid.UUID, *, title: str | None = None, status: ProjectStatus | None = None
     ) -> m.Project:

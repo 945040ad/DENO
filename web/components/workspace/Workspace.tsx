@@ -24,8 +24,44 @@ import {
 } from '@/lib/api';
 
 type Screen = 0 | 1 | 2 | 3;
+const PAST_LIMIT = 6;
 // Wall clock for event handlers (kept out of render so the React compiler's purity check holds).
 const clockNow = () => Date.now();
+
+function ago(iso: string, now: number): string {
+  const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  if (s < 7 * 86400) return `${Math.floor(s / 86400)}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+const PAST_VERDICT: Record<string, { word: string; cls: string }> = {
+  build: { word: 'BUILD', cls: 'build' },
+  pivot: { word: 'PIVOT', cls: 'pivot' },
+  kill: { word: 'KILL', cls: 'kill' },
+  insufficient_evidence: { word: 'NO CALL', cls: 'none' },
+};
+
+/** Badge, status line and action for one past idea, from its newest run. */
+function pastState(p: Project, now: number): { badge: string; sub?: string; cls: string; meta: string; go: string; live: boolean } {
+  const run = p.latest_run;
+  if (!run) return { badge: 'NOT RUN', cls: 'idle', meta: `Added ${ago(p.created_at, now)}`, go: 'RUN →', live: false };
+  const when = ago(run.finished_at ?? run.created_at, now);
+  if (run.verdict) {
+    const v = PAST_VERDICT[run.verdict] ?? PAST_VERDICT.insufficient_evidence;
+    const conf = run.confidence != null ? ` · ${Math.round(run.confidence * 100)}% confidence` : '';
+    const state = run.status === 'awaiting_review' ? 'Verdict ready · review pending' : 'Validated';
+    return { badge: v.word, sub: 'VERDICT', cls: v.cls, meta: `${state}${conf} · ${when}`, go: 'OPEN →', live: false };
+  }
+  if (run.status === 'queued' || run.status === 'running') {
+    return { badge: 'LIVE', sub: run.status === 'queued' ? 'STARTING' : 'RESEARCHING', cls: 'live', meta: `Researching now · started ${ago(run.created_at, now)}`, go: 'WATCH →', live: true };
+  }
+  if (run.status === 'failed') return { badge: 'FAILED', cls: 'failed', meta: `Run failed · ${when} · nothing was lost, retry anytime`, go: 'RETRY →', live: false };
+  if (run.status === 'cancelled') return { badge: 'STOPPED', cls: 'idle', meta: `Cancelled · ${when}`, go: 'RUN →', live: false };
+  return { badge: 'DONE', cls: 'none', meta: `Finished · ${when}`, go: 'OPEN →', live: false };
+}
 const TABS = ['01 INTAKE', '02 VERDICT', '03 CALENDAR', '04 BAN RISK'];
 
 /** Transparent 0–100 score from real gate findings: −15 per blocking issue, −5 per warning. */
@@ -92,6 +128,16 @@ export function Workspace() {
     };
   }, [openProject]);
 
+  const refreshProjects = useCallback(() => {
+    api.listProjects().then((page) => setProjects(page.items)).catch(() => undefined);
+  }, []);
+  const anyLive = projects.some((p) => p.latest_run?.status === 'queued' || p.latest_run?.status === 'running');
+  useEffect(() => {
+    if (!anyLive) return;
+    const id = setInterval(refreshProjects, 10_000);
+    return () => clearInterval(id);
+  }, [anyLive, refreshProjects]);
+
   const enabled = [true, Boolean(report), Boolean(plan), true];
 
   return (
@@ -135,8 +181,9 @@ export function Workspace() {
               // No finished run: the intake screen shows live progress, or the failure with a retry.
               return { open: true, run: opened.latest } as const;
             }}
+            onChanged={refreshProjects}
             onValidated={(pid, rid, r) => {
-              api.listProjects().then((p) => setProjects(p.items)).catch(() => undefined);
+              refreshProjects();
               setProjectId(pid);
               setRunId(rid);
               setReport(r);
@@ -206,11 +253,14 @@ function IntakeScreen({
   projects,
   currentProjectId,
   onOpenProject,
+  onChanged,
   onValidated,
 }: {
   projects: Project[];
   currentProjectId: string | null;
   onOpenProject: (id: string) => Promise<{ open: false } | { open: true; run: Run | null }>;
+  /** A run started or ended without a verdict: reload the list so its status is current. */
+  onChanged: () => void;
   onValidated: (projectId: string, runId: string, report: Report | null) => void;
 }) {
   const [idea, setIdea] = useState('');
@@ -225,6 +275,7 @@ function IntakeScreen({
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [quiet, setQuiet] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   // Set when a past idea without a finished run is opened: "Run validation" re-runs that project.
   const [retryProject, setRetryProject] = useState<{ id: string; idea: string } | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -323,6 +374,7 @@ function IntakeScreen({
               setFailed(true);
               setStageState((s) => s.map((x) => (x.status === 'running' ? { status: 'failed' } : x)));
               setLog(ev.status === 'failed' ? `run failed (${String(ev.error_code ?? 'error')}) · try again in a minute` : 'cancelled');
+              onChanged();
               resolve();
               return;
             }
@@ -360,6 +412,7 @@ function IntakeScreen({
       setPct((p) => Math.max(p, 3));
       cap.current = 9;
       const run = await api.startRun(project.id);
+      onChanged();
       lastEvent.current = clockNow();
       await follow(project.id, run.run_id);
     } catch (err) {
@@ -421,21 +474,46 @@ function IntakeScreen({
         </div>
 
         {projects.length > 0 && (
-          <div style={{ marginTop: 28 }}>
-            <div className="dv-label">PAST VALIDATIONS</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {projects.slice(0, 8).map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => void openPast(p)}
-                  style={{ textAlign: 'left', border: '1px solid rgba(16,22,19,.2)', background: p.id === currentProjectId ? 'var(--paper-2)' : 'var(--paper)', padding: '10px 12px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'baseline' }}
-                >
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
-                  <span className="dv-mono dv-muted" style={{ fontSize: 10, flex: 'none' }}>{new Date(p.created_at).toLocaleDateString()} · {p.status.toUpperCase()}</span>
-                </button>
-              ))}
+          <section style={{ marginTop: 32 }} aria-labelledby="past-heading">
+            <div className="dv-past-head">
+              <span id="past-heading" className="dv-label" style={{ margin: 0 }}>YOUR VALIDATIONS</span>
+              <span className="dv-mono dv-muted" style={{ fontSize: 10.5 }}>
+                {projects.length} {projects.length === 1 ? 'IDEA' : 'IDEAS'}
+              </span>
             </div>
-          </div>
+            <div className="dv-past">
+              {(showAll ? projects : projects.slice(0, PAST_LIMIT)).map((p) => {
+                const st = pastState(p, now);
+                return (
+                  <button
+                    key={p.id}
+                    className={`dv-past-item${p.id === currentProjectId ? ' on' : ''}`}
+                    onClick={() => void openPast(p)}
+                    disabled={running}
+                    title={p.idea}
+                  >
+                    <span className={`dv-past-badge ${st.cls}`}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {st.live && <span className="dv-orb" aria-hidden />}
+                        {st.badge}
+                      </span>
+                      {st.sub && <small>{st.sub}</small>}
+                    </span>
+                    <span className="dv-past-body">
+                      <span className="dv-past-title">{p.title}</span>
+                      <span className="dv-past-meta">{st.meta}</span>
+                    </span>
+                    <span className="dv-past-go" aria-hidden>{st.go}</span>
+                  </button>
+                );
+              })}
+              {projects.length > PAST_LIMIT && (
+                <button className="dv-past-more" onClick={() => setShowAll((v) => !v)}>
+                  {showAll ? 'SHOW LESS ↑' : `SHOW ALL ${projects.length} ↓`}
+                </button>
+              )}
+            </div>
+          </section>
         )}
       </div>
 

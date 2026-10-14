@@ -303,3 +303,26 @@ async def test_rls_limits_authenticated_role_to_own_rows(session: AsyncSession) 
                 {"id": new_id(), "uid": b_id},
             )
     await session.execute(text("RESET ROLE"))
+
+
+async def test_latest_runs_returns_newest_run_with_verdict_and_stays_in_tenant(session: AsyncSession) -> None:
+    me, other = users()
+    scope = UserScope(session, me)
+    project, old = await seed_run(scope)
+    await session.execute(
+        update(m.ValidationRun)
+        .where(m.ValidationRun.id == old.id)
+        .values(status="failed", created_at=datetime.now(UTC) - timedelta(hours=1))
+    )
+    new, _ = await scope.create_run(project.id)
+    scope._add(m.Verdict(id=new_id(), run_id=new.id, verdict=VerdictKind.PIVOT, confidence=0.36))
+    never_run = await scope.create_project(IDEA + " (no runs)")
+    _, foreign = await seed_run(UserScope(session, other))
+    await session.flush()
+
+    latest = await scope.latest_runs([project.id, never_run.id, foreign.project_id])
+    assert set(latest) == {project.id}
+    run, verdict = latest[project.id]
+    assert run.id == new.id
+    assert verdict is not None and verdict.verdict == VerdictKind.PIVOT
+    assert await scope.latest_runs([]) == {}

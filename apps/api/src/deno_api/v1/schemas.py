@@ -64,6 +64,18 @@ class ProjectPatch(BaseModel):
     status: Literal[ProjectStatus.ARCHIVED, ProjectStatus.DRAFT] | None = None
 
 
+class LatestRunOut(BaseModel):
+    """The project's newest validation run, so lists can show real progress and the verdict."""
+
+    id: uuid.UUID
+    status: RunStatus
+    error_code: str | None
+    created_at: datetime
+    finished_at: datetime | None
+    verdict: VerdictKind | None = None
+    confidence: float | None = None
+
+
 class ProjectOut(_Out):
     id: uuid.UUID
     title: str
@@ -72,6 +84,7 @@ class ProjectOut(_Out):
     status: ProjectStatus
     created_at: datetime
     updated_at: datetime
+    latest_run: LatestRunOut | None = None
 
 
 class ProjectPage(BaseModel):
