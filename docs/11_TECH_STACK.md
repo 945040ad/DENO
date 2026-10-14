@@ -38,6 +38,8 @@ packages/
   llm/      deno_llm     model router (fast/strong/judge + fallback), NIM limiter, LLM cache, Langfuse
   rag/      deno_rag     chunking, embeddings, rerank, retrieval over pgvector
   sources/  deno_sources keyless sources: Reddit, Hacker News, X syndication, LinkedIn public pages, RSS feeds; robots.txt checks
+                         github.py / website.py: read the repo or product site an idea links to (intake);
+                         website.py is SSRF-guarded (public IPs only, pinned connection, robots.txt, 1 MB cap)
   graphs/   deno_graphs  LangGraph graphs: validation/ (idea → verdict) and content/ (30-day plan)
 web/                     Next.js app (app router): marketing, auth, /app workspace, account, legal
 migrations/              Alembic migrations (0001 schema, 0002 seed data, 0003 profile fields)

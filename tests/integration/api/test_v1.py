@@ -159,7 +159,6 @@ async def test_concurrency_and_monthly_quota(
     assert over.json()["error"]["code"] == "quota_exceeded"
 
 
-
 async def test_internal_plan_is_not_capped_monthly(
     client: httpx.AsyncClient, maker: async_sessionmaker[AsyncSession]
 ) -> None:
@@ -176,6 +175,7 @@ async def test_internal_plan_is_not_capped_monthly(
     assert (await client.post(f"/api/v1/projects/{project}/runs", headers=headers)).status_code == 202
     listed = (await client.get("/api/v1/projects", headers=headers)).json()["items"]
     assert listed[0]["latest_run"]["status"] == "queued"
+
 
 async def _start(client: httpx.AsyncClient, headers: dict[str, str]) -> str:
     pid = await create_project(client, headers)
