@@ -61,11 +61,12 @@ def decide(cov: Coverage, claims: Sequence[ClaimView], signals: Mapping[str, flo
     if not cov.ok:
         return VerdictBand("insufficient_evidence", 0.0, list(cov.gaps))
     if support + refute < 3:
-        return VerdictBand(
-            "insufficient_evidence",
-            0.0,
-            [f"only {support + refute} claims survived citation checks (need at least 3 to judge)"],
+        why = (
+            f"none of the {cov.documents} posts found discuss this idea directly"
+            if support + refute == 0
+            else f"only {support + refute} claims survived citation checks (need at least 3 to judge)"
         )
+        return VerdictBand("insufficient_evidence", 0.0, [why])
 
     if pain >= 2 and (demand + wtp >= 1 or wtp_phrases >= 2) and refute <= support / 2:
         verdict = "build"

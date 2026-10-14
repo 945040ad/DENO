@@ -64,3 +64,56 @@ def content_hash(text: str) -> str:
     """Hash of the whitespace/case-normalised text, to spot the same post under different URLs."""
     normalised = " ".join(clean_text(text).lower().split())
     return hashlib.sha256(normalised.encode()).hexdigest()
+
+
+_WORD = re.compile(r"[a-z0-9]+")
+_QUERY_STOP = frozenset(
+    [
+        "the",
+        "and",
+        "for",
+        "with",
+        "from",
+        "that",
+        "this",
+        "your",
+        "you",
+        "are",
+        "how",
+        "what",
+        "why",
+        "who",
+        "into",
+        "about",
+        "tool",
+        "tools",
+        "app",
+        "apps",
+        "software",
+    ]
+)
+
+
+def query_stems(query: str) -> list[str]:
+    """Distinctive words of a search query, cut to 5-letter stems so "tracking" matches "tracker"."""
+    terms = [t for t in _WORD.findall(query.lower()) if t not in _QUERY_STOP and len(t) > 2]
+    return list(dict.fromkeys(t[:5] for t in terms))
+
+
+def mentions_near(text: str, stems: list[str], window: int = 12) -> bool:
+    """True when every stem appears within ``window`` words of the others.
+
+    Search APIs match words anywhere in a long comment, so "posture analysis" also returns a thread about
+    "security posture" that says "analysis" three paragraphs later. Requiring the words close together
+    keeps posts that actually talk about the thing searched for."""
+    if not stems:
+        return False
+    words = _WORD.findall(text.lower())
+    hits = [(i, s) for i, w in enumerate(words) for s in stems if w.startswith(s)]
+    if len(stems) == 1:
+        return bool(hits)
+    for i, first in hits:
+        nearby = {s for j, s in hits if abs(j - i) <= window}
+        if first in nearby and nearby >= set(stems):
+            return True
+    return False

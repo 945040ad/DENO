@@ -103,8 +103,9 @@ class XClient(SourceClient):
         self.searxng = searxng
 
     async def discover(self, query: str, *, time_range: str | None = None) -> list[tuple[str, str]]:
-        """(handle, tweet id) pairs found by `site:x.com` search."""
-        results = await self.searxng.search(f'site:x.com "{query}"', time_range=time_range)
+        """(handle, tweet id) pairs found by `site:x.com` search. Unquoted: an exact 4-5 word phrase almost
+        never matches a tweet."""
+        results = await self.searxng.search(f"site:x.com {query}", time_range=time_range)
         found: dict[str, tuple[str, str]] = {}
         for r in results:
             if m := STATUS_URL.search(r["url"]):

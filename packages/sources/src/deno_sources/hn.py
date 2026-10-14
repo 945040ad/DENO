@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from deno_sources.base import SourceClient
 from deno_sources.models import Engagement, Post, SourceName
-from deno_sources.normalize import canonical_url, clean_text
+from deno_sources.normalize import canonical_url, clean_text, mentions_near, query_stems
 
 API = "https://hn.algolia.com/api/v1"
 
@@ -45,7 +45,8 @@ class HackerNewsClient(SourceClient):
     name = SourceName.HN
 
     async def search(self, query: str, *, since: datetime | None = None, limit: int = 25) -> list[Post]:
-        params: dict[str, str | int] = {"query": query, "tags": "(story,comment)", "hitsPerPage": min(limit, 100)}
+        # Over-fetch, then keep hits where the query words sit close together (see ``mentions_near``).
+        params: dict[str, str | int] = {"query": query, "tags": "(story,comment)", "hitsPerPage": min(limit * 3, 100)}
         if since:
             params["numericFilters"] = f"created_at_i>{int(since.timestamp())}"
         res = await self.fetcher.get(f"{API}/search", source=self.name, params=params, cache_ttl_s=6 * 3600)
@@ -53,7 +54,9 @@ class HackerNewsClient(SourceClient):
             return []
         data = res.json()
         hits = data.get("hits", []) if isinstance(data, dict) else []
-        return [p for h in hits if isinstance(h, dict) and (p := parse_hit(h))]
+        stems = query_stems(query)
+        posts = [p for h in hits if isinstance(h, dict) and (p := parse_hit(h))]
+        return [p for p in posts if mentions_near(f"{p.title or ''} {p.text}", stems)][:limit]
 
     async def total_mentions(self, query: str, *, since: datetime | None = None) -> int:
         params: dict[str, str | int] = {"query": query, "hitsPerPage": 0}

@@ -228,7 +228,7 @@ async def perspective_planner(state: ValidationState, config: RunnableConfig) ->
 def _clean_queries(values: list[str], limit: int = 3) -> list[str]:
     out: list[str] = []
     for v in values:
-        q = re.sub(r"[\"'“”#()]|\b(AND|OR|NOT)\b", " ", v)
+        q = re.sub(r"\b(site|lang|from|to):\S*|[\"'“”#():]|\b(AND|OR|NOT)\b", " ", v)
         q = " ".join(q.split())[:80]
         if q and q.lower() not in {x.lower() for x in out}:
             out.append(q)
@@ -264,7 +264,7 @@ async def query_planner(state: ValidationState, config: RunnableConfig) -> dict[
     return {
         "plan": {
             "subreddits": [s for s in dict.fromkeys(subs) if _SUBREDDIT.match(s)][:4],
-            SourceName.REDDIT: short(keywords[:2] + plan.reddit, 2, 3),
+            SourceName.REDDIT: short(keywords[:2] + plan.reddit, 3, 3),
             SourceName.HN: short(keywords[:2] + plan.hn, 3, 3),
             SourceName.X: short(plan.x + keywords, 2, 5),
             SourceName.LINKEDIN_POSTS: _clean_queries(plan.linkedin_posts, 2),
@@ -716,7 +716,12 @@ _SLOP = re.compile(
 
 def _fallback_rationale(band: Any, cov: dict[str, Any]) -> str:
     reasons = "; ".join(band.reasons)
-    gap = cov["gaps"][0] if cov.get("gaps") else "more posts from the buyers themselves"
+    # Coverage gaps ("no posts on x") only explain a verdict when coverage itself failed.
+    gap = (
+        cov["gaps"][0]
+        if cov.get("gaps") and not cov.get("ok", True)
+        else "posts about this exact problem; describe the idea in the words its users would use"
+    )
     return f"Verdict: {band.verdict.replace('_', ' ')}. Why: {reasons}. What would change it: {gap}."
 
 

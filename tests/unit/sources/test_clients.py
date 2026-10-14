@@ -231,3 +231,45 @@ async def test_hn_and_feed_clients() -> None:
     assert await c[SourceName.HN].search("churn")
     assert len(await c[SourceName.PRODUCTHUNT].recent_launches()) == 2  # type: ignore[attr-defined]
     assert [t.title for t in await c[SourceName.TRENDS].search("churn analytics platform")] == ["churn analytics"]
+
+
+# ---- relevance: words of a query must sit close together -----------------------------
+
+
+def test_mentions_near_requires_query_words_close_together() -> None:
+    from deno_sources.normalize import mentions_near, query_stems
+
+    stems = query_stems("posture analysis")
+    assert mentions_near("A quick posture analysis from a phone video of your squat", stems)
+    off_topic = "Our security posture improved a lot. " + "filler " * 40 + "The analysis took weeks."
+    assert not mentions_near(off_topic, stems)
+    assert mentions_near("I built a tracker for ball speed", query_stems("ball speed tracking app"))
+    assert not mentions_near("anything", query_stems("the app"))  # only stop words: nothing to match
+
+
+@respx.mock
+async def test_hn_client_drops_hits_that_only_mention_query_words_far_apart() -> None:
+    far = "Our security posture is fine. " + "filler " * 40 + "Then the analysis."
+    hits = [
+        {"objectID": "1", "comment_text": "Posture analysis apps for runners are great", "_tags": ["comment"]},
+        {"objectID": "2", "comment_text": far, "_tags": ["comment"]},
+    ]
+    respx.get("https://hn.algolia.com/api/v1/search").respond(200, json={"hits": hits})
+    posts = await clients()[SourceName.HN].search("posture analysis")
+    assert [p.url for p in posts] == ["https://news.ycombinator.com/item?id=1"]
+
+
+@respx.mock
+async def test_reddit_client_keeps_posts_with_query_words_close_together() -> None:
+    def comment(i: int, body: str) -> dict:  # type: ignore[type-arg]
+        return {"id": f"c{i}", "body": body, "permalink": f"/r/Softball/comments/p/x/c{i}/", "created_utc": 1767225600}
+
+    items = [
+        comment(1, "Is there an app that does tracking of ball speed from video?"),
+        comment(2, "Ball speed tracking with a radar gun is pricey"),
+        comment(3, "Softball season again. Tracking my sleep lately, speed drills tomorrow"),
+    ]
+    respx.get("https://arctic-shift.photon-reddit.com/api/comments/search").respond(200, json={"data": items})
+    respx.get("https://arctic-shift.photon-reddit.com/api/posts/search").respond(200, json={"data": []})
+    posts = await clients()[SourceName.REDDIT].search("ball speed tracking")
+    assert sorted(p.text for p in posts) == sorted(items[i]["body"] for i in (0, 1))

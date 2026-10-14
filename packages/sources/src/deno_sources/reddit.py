@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from deno_sources.base import SourceClient
 from deno_sources.models import Engagement, Post, SourceName
 from deno_sources.net import Fetcher, FetchResult
-from deno_sources.normalize import canonical_url, clean_text
+from deno_sources.normalize import canonical_url, clean_text, mentions_near, query_stems
 
 _STOP = frozenset(
     [
@@ -116,7 +116,7 @@ class RedditClient(SourceClient):
         if not terms:
             return []
         anchor = max(terms, key=len)
-        stems = [t[:5] for t in terms if t != anchor]
+        stems = query_stems(query)
         posts: list[Post] = []
         for sub in self.subreddits:
             params: dict[str, str | int] = {"subreddit": sub, "limit": 100}
@@ -128,7 +128,8 @@ class RedditClient(SourceClient):
             res = await self._get(f"{API}/posts/search", {**params, "query": anchor})
             if res.status == 200:
                 posts += [p for item in _data(res.json()) if (p := parse_post(item))]
-        matched = [p for p in posts if all(stem in p.text.lower() for stem in stems)]
+        # Every word, close together: a substring test let "ball" match every post in r/Softball.
+        matched = [p for p in posts if mentions_near(p.text, stems, window=20)]
         matched.sort(key=lambda p: p.engagement.score or 0, reverse=True)
         return matched[: limit * max(1, len(self.subreddits))]
 
