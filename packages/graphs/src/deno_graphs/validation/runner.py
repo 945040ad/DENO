@@ -119,7 +119,12 @@ async def _run(ctx: RunContext, settings: Settings) -> RunOutcome:
     )
     stack = build_stack(settings, redis)
     deps = GraphDeps(ctx=ctx, settings=settings, stack=stack, fetcher=fetcher)
-    config: RunnableConfig = {"configurable": {"thread_id": thread_id, "deps": deps}, "recursion_limit": 60}
+    # max_concurrency bounds parallel source/analyst branches (DB connections, NIM rate limit).
+    config: RunnableConfig = {
+        "configurable": {"thread_id": thread_id, "deps": deps},
+        "recursion_limit": 60,
+        "max_concurrency": 8,
+    }
     try:
         async with checkpointer(settings) as saver:
             graph = build_graph(saver)

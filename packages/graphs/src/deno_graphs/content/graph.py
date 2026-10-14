@@ -539,7 +539,13 @@ async def run_content_plan(ctx: RunContext, *, settings: Any = None) -> dict[str
         thread_id, project_id, run_id, days = plan.thread_id, plan.project_id, plan.run_id, plan.days
     await ctx.emit("status", status="running")
     deps = ContentDeps(ctx=ctx, stack=build_stack(settings, ctx.events.redis))
-    config: RunnableConfig = {"configurable": {"thread_id": thread_id, "deps": deps}, "recursion_limit": 40}
+    # max_concurrency: drafts fan out one branch per brief; each holds a DB connection and calls NIM
+    # (40 req/min), so run a few at a time instead of all 14.
+    config: RunnableConfig = {
+        "configurable": {"thread_id": thread_id, "deps": deps},
+        "recursion_limit": 40,
+        "max_concurrency": 4,
+    }
     status = RunStatus.SUCCEEDED
     summary: dict[str, Any] = {}
     try:

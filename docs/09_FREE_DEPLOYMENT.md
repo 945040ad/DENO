@@ -160,7 +160,8 @@ Follow this order. Replace `deno-gtm`, the region and the URLs if you build a se
    provider, TOTP, and **URL Configuration** with Site URL = the web URL and Redirect URLs =
    `<web URL>/**` (plus `http://localhost:3000/**` for development).
 3. **Connect → Session pooler** (port 5432, IPv4). Change the scheme to `postgresql+asyncpg://` and put it
-   into `.env` as `DATABASE_URL`. Don't use the direct `db.<ref>.supabase.co` host: it is IPv6-only and Cloud
+   into `.env` as `DATABASE_URL` (used by Alembic). For the **runtime secret** use the same URL on port **6543**
+   (transaction pooler): the session pooler allows only 15 clients for the whole project. Don't use the direct `db.<ref>.supabase.co` host: it is IPv6-only and Cloud
    Run egress is IPv4. New projects may use an `aws-1-…` pooler host; copy it exactly.
 4. Create the tables: `uv run alembic upgrade head` (check with `uv run alembic current` → `0003 (head)`).
 5. Copy the `sb_secret_…` key to `.env` as `SUPABASE_SECRET_KEY`, and the URL and publishable key into
@@ -204,7 +205,7 @@ that run as `deno-api@` itself.
 One secret per value, read from `.env` so nothing is typed or echoed:
 ```bash
 val() { grep -m1 "^$1=" .env | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/'; }
-printf '%s' "$(val DATABASE_URL)"        | gcloud secrets create database-url    --data-file=- --replication-policy=automatic
+printf '%s' "$(val DATABASE_URL | sed 's/:5432\//:6543\//')" | gcloud secrets create database-url --data-file=- --replication-policy=automatic  # transaction pooler
 printf '%s' "$(val NVIDIA_NIM_API_KEY)"  | gcloud secrets create nim-key         --data-file=- --replication-policy=automatic
 printf '%s' "$(val SUPABASE_SECRET_KEY)" | gcloud secrets create supabase-secret --data-file=- --replication-policy=automatic
 printf '%s' "$(val VALKEY_URL)"          | gcloud secrets create valkey-url      --data-file=- --replication-policy=automatic
@@ -321,6 +322,7 @@ Incident procedures (failing source, NIM outage, takedowns, account deletion) ar
 | `alembic`: `Name or service not known` | `.env` still had the template host `aws-0-REGION…` | Paste the real session pooler URI |
 | Team `*-projects.vercel.app` URL redirects to a Vercel login | Vercel Deployment Protection covers deployment and team URLs | Use the production alias `deno-web-eight.vercel.app` |
 | Git pushes build at repo root and fail | Vercel Root Directory was `.` | Set it to `web` |
+| `EMAXCONNSESSION: max clients reached in session mode … pool_size: 15` (content plans failing) | Supabase's session pooler (:5432) allows 15 clients for the whole project; parallel drafts plus the API ran out | Runtime `database-url` secret uses the **transaction pooler :6543** (version 2). Keep :5432 in `.env` for Alembic. Graphs also cap parallel branches (`max_concurrency`) |
 | Login emails link to localhost | Supabase Site URL / Redirect URLs not updated | §6.8 |
 | SearXNG calls return 403 | API account lacks `run.invoker` on `deno-searxng`, or `SEARXNG_GCP_AUTH` is off | §6.6 |
 | `POST /internal/cron/*` returns 404 | `CRON_OIDC_AUDIENCE` / `CRON_SERVICE_ACCOUNT` empty | Both are set by the deploy script |

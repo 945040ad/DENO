@@ -66,7 +66,7 @@ Legend for the **Prod** column: 🔒 = from Secret Manager, `—` = not set (def
 ### Data
 | Variable | Default | Prod | Purpose |
 |---|---|---|---|
-| `DATABASE_URL` | empty | 🔒 `database-url` | `postgresql+asyncpg://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres` (session pooler, IPv4). Also used by Alembic |
+| `DATABASE_URL` | empty | 🔒 `database-url` | `postgresql+asyncpg://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:5432/postgres` (session pooler :5432 in `.env`, used by Alembic). The production secret uses the **transaction pooler :6543**: the session pooler allows only 15 clients project-wide |
 | `VALKEY_URL` | `redis://127.0.0.1:6379/0` | 🔒 `valkey-url` | Redis/Valkey: run events (SSE), run leases, rate limits, LLM cache, taskiq broker. `rediss://` for Upstash |
 | `SCRAPED_TEXT_RETENTION_DAYS` | `90` | — | The purge cron deletes scraped text older than this |
 | `TEST_DATABASE_URL` | local `postgres-test` | n/a | Integration tests only. Never point it at Supabase: the tests drop every table, and the test setup refuses Supabase hosts |

@@ -21,8 +21,11 @@ def build_engine(url: str, **overrides: Any) -> AsyncEngine:
         # PgBouncer in transaction mode can't keep prepared statements.
         connect_args |= {"statement_cache_size": 0, "prepared_statement_cache_size": 0}
     options: dict[str, Any] = {
+        # At most 10 connections per process. Supabase's session pooler (:5432) allows 15 clients for the
+        # whole project, so production uses the transaction pooler (:6543); see docs/09.
         "pool_size": 5,
-        "max_overflow": 10,
+        "max_overflow": 5,
+        "pool_timeout": 30,
         "pool_pre_ping": True,
         "pool_recycle": 1800,
         "connect_args": connect_args,
