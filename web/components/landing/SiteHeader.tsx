@@ -1,9 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+
+  // Read the local session (no network call) so a signed-in visitor gets a way back to the workspace.
+  useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => setSignedIn(Boolean(data.session))).catch(() => undefined);
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => setSignedIn(Boolean(session)));
+    return () => data.subscription.unsubscribe();
+  }, []);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -54,8 +65,17 @@ export function SiteHeader() {
         </nav>
 
         <div className="site-header__actions">
-          <a href="/auth" className="site-header__login">Log in</a>
-          <a href="/auth?mode=signup" className="btn btn--lime btn--raised">Validate an idea</a>
+          {signedIn ? (
+            <>
+              <a href="/app/account" className="site-header__login">Account</a>
+              <a href="/app" className="btn btn--lime btn--raised">Open dashboard →</a>
+            </>
+          ) : (
+            <>
+              <a href="/auth" className="site-header__login">Log in</a>
+              <a href="/auth?mode=signup" className="btn btn--lime btn--raised">Validate an idea</a>
+            </>
+          )}
         </div>
       </div>
 

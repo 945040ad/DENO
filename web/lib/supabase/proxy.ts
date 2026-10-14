@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { REMEMBER_COOKIE, applyRemember, getSupabaseConfig } from './config';
+import { REMEMBER_COOKIE, applyRemember, getSupabaseConfig, safeNext } from './config';
 
 /** Paths that need a signed-in user. */
 const PROTECTED_PREFIXES = ['/app'];
@@ -38,6 +38,17 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const { pathname } = request.nextUrl;
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   if (!signedIn && isProtected) return redirectTo(request, response, '/auth', pathname);
+
+  // Already signed in: the log-in / sign-up screen (and every "Validate an idea" link to it) goes
+  // straight to the workspace. Sub-routes (/auth/callback, /auth/mfa, /auth/reset…) are untouched.
+  if (signedIn && pathname === '/auth') {
+    const url = request.nextUrl.clone();
+    url.pathname = safeNext(request.nextUrl.searchParams.get('next'));
+    url.search = '';
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+    return redirect;
+  }
 
   if (signedIn && isProtected) {
     // Password-only session on an account with 2FA: ask for the code before the workspace.
