@@ -51,6 +51,7 @@ from deno_llm import (
 from deno_llm import wrap_sources as wrap
 from deno_rag import Analyst, Retriever, analyst_queries, ingest_posts
 from deno_sources import AccessDenied, Fetcher, Post, SourceConfig, SourceName, SourceUnavailable, build_clients
+from deno_sources.github import RepoUnavailable, fetch_repo, find_repo
 
 log = get_logger(__name__)
 
@@ -158,16 +159,36 @@ async def intake(state: ValidationState, config: RunnableConfig) -> dict[str, An
     idea = state["idea"].strip()
     if len(idea) < 5:
         return {"brief": {}, "rejected": "The idea is too short to research."}
+    context, repo_problem = await _repo_context(d, idea)
     p = get_prompt("validation.intake")
     brief = await d.stack.router.structured(Role.FAST, sc.IdeaBrief, temperature=0).ainvoke(
-        p.messages(idea=idea[:4000]), config=p.config()
+        p.messages(idea=idea[:4000], context=context, untrusted_rule=UNTRUSTED_RULE), config=p.config()
     )
     if not brief.is_coherent or not brief.problem.strip() or not brief.keywords:
-        return {
-            "brief": brief.model_dump(),
-            "rejected": brief.reject_reason or "We couldn't find a clear problem and audience in this idea.",
-        }
+        reason = brief.reject_reason or "We couldn't find a clear problem and audience in this idea."
+        if repo_problem:
+            reason = f"{repo_problem}. Make it public, or describe the product in a few sentences. ({reason})"
+        return {"brief": brief.model_dump(), "rejected": reason}
     return {"brief": brief.model_dump(), "rejected": None}
+
+
+async def _repo_context(d: GraphDeps, idea: str) -> tuple[str, str | None]:
+    """A linked GitHub repo's facts as an untrusted block (or "", plus why it couldn't be read)."""
+    found = find_repo(idea)
+    if not found:
+        return "", None
+    owner, name = found
+    await d.ctx.emit("log", message=f"reading github.com/{owner}/{name} (README, description, topics)…")
+    try:
+        repo = await fetch_repo(owner, name, token=d.settings.github_token.get_secret_value())
+    except RepoUnavailable as exc:
+        log.info("repo_unavailable", repo=f"{owner}/{name}", reason=exc.reason)
+        await d.ctx.emit("log", message=f"couldn't read the repo: {exc.reason}")
+        return "", exc.reason
+    log.info("repo_read", repo=repo.slug, readme_chars=len(repo.readme))
+    await d.ctx.emit("log", message=f"read {repo.slug}: {len(repo.readme)} README characters")
+    block = wrap([SourceBlock(id="repo", url=repo.url, source="github", text=repo.as_text())])
+    return f"The founder's repository:\n{block}", None
 
 
 @node("perspective_planner")

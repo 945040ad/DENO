@@ -86,6 +86,7 @@ Legend for the **Prod** column: 🔒 = from Secret Manager, `—` = not set (def
 | `SEARXNG_GCP_AUTH` | `false` | `true` | Attach a Google ID token (SearXNG is a private Cloud Run service) |
 | `SOURCES_ROBOTS_OPT_IN` | empty | — | Hosts fetched even though robots.txt disallows bots. **Only after legal review** |
 | `SOURCES_USER_AGENT` | empty | — | Custom fetcher user agent |
+| `GITHUB_TOKEN` | empty | — | Optional. Ideas that link a public GitHub repo are read through api.github.com (description, topics, README). Without a token GitHub allows 60 requests/hour per IP (2 per run); a fine-grained token with no scopes raises that to 5,000 |
 | `TAKEDOWN_RATE_LIMIT_PER_HOUR` | `5` | — | Public takedown form limit |
 
 ### Jobs and crons

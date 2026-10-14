@@ -80,6 +80,8 @@ class Settings(BaseSettings):
     # to fetch anyway, e.g. "www.linkedin.com,cdn.syndication.twimg.com". Empty = obey robots.txt.
     sources_robots_opt_in: Annotated[set[str], NoDecode] = set()
     sources_user_agent: str = ""
+    # Optional: raises GitHub's limit for reading repos linked in ideas (60/h per IP without it).
+    github_token: SecretStr = SecretStr("")
     takedown_rate_limit_per_hour: int = 5
 
     # --- Auth (Supabase, ADR-003) ---
