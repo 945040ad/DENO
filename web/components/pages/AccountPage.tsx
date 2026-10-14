@@ -118,12 +118,13 @@ export function AccountPage() {
       .catch((err) => setMessage(err instanceof Error ? err.message : String(err)));
   }, []);
 
-  const pro = billing?.plan === 'pro';
+  // internal = team/tester account: everything unlocked, no limits.
+  const pro = billing?.plan === 'pro' || billing?.plan === 'internal';
   const name = me?.display_name || me?.email?.split('@')[0] || 'Your account';
   const nav: [Tab, string, string, string][] = [
     ['profile', '01', 'Profile', ''],
     ['voice', '02', 'Voice & handles', me?.handles.length ? String(me.handles.length) : ''],
-    ['billing', '03', 'Plan & usage', pro ? 'PRO' : 'FREE'],
+    ['billing', '03', 'Plan & usage', (billing?.plan ?? 'free').toUpperCase()],
     ['checkout', '04', 'Checkout', ''],
     ['notif', '05', 'Notifications', ''],
     ['security', '06', 'Security', ''],
@@ -446,7 +447,8 @@ function VoiceTab({ me, onSaved, onError }: Saver) {
 }
 
 function BillingTab({ billing, onCheckout, onError }: { billing: Billing; onCheckout: () => void; onError: (m: string) => void }) {
-  const pro = billing.plan === 'pro';
+  const pro = billing.plan === 'pro' || billing.plan === 'internal';
+  const internal = billing.plan === 'internal';
   const nextReset = new Date();
   nextReset.setMonth(nextReset.getMonth() + 1, 1);
 
@@ -462,8 +464,14 @@ function BillingTab({ billing, onCheckout, onError }: { billing: Billing; onChec
     <div className="dv-rise">
       <Head
         kicker="03 · PLAN & USAGE"
-        title={pro ? 'Pro. Distribution unlocked.' : 'Free. Validation, forever.'}
-        lede={pro ? 'Content plans, the 30-day calendar and Story Bank are on. Usage resets on the first of each month.' : "You're on Stage 1. Upgrade when a verdict says BUILD and you want the plan to post it."}
+        title={internal ? 'Internal. No limits.' : pro ? 'Pro. Distribution unlocked.' : 'Free. Validation, forever.'}
+        lede={
+          internal
+            ? 'Team and testing account: every feature is on and monthly quotas are effectively unlimited. Billing never changes this plan.'
+            : pro
+              ? 'Content plans, the 30-day calendar and Story Bank are on. Usage resets on the first of each month.'
+              : "You're on Stage 1. Upgrade when a verdict says BUILD and you want the plan to post it."
+        }
       />
       <div className="dv-split dv-rb">
         <div className="dv-pad dv-rr">
@@ -522,7 +530,7 @@ function BillingTab({ billing, onCheckout, onError }: { billing: Billing; onChec
 
 function CheckoutTab({ billing, onError }: { billing: Billing; onError: (m: string) => void }) {
   const [busy, setBusy] = useState(false);
-  const pro = billing.plan === 'pro';
+  const pro = billing.plan === 'pro' || billing.plan === 'internal';
 
   async function checkout() {
     setBusy(true);

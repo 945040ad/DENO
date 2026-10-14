@@ -159,6 +159,24 @@ async def test_concurrency_and_monthly_quota(
     assert over.json()["error"]["code"] == "quota_exceeded"
 
 
+
+async def test_internal_plan_is_not_capped_monthly(
+    client: httpx.AsyncClient, maker: async_sessionmaker[AsyncSession]
+) -> None:
+    user_id, headers = user_token()
+    project = await create_project(client, headers)
+    async with maker() as session, session.begin():
+        await session.execute(update(m.Profile).where(m.Profile.id == user_id).values(plan=Plan.FREE))
+        for _ in range(50):
+            session.add(m.UsageEvent(id=new_id(), user_id=user_id, kind="validation_run", units=1))
+    assert (await client.post(f"/api/v1/projects/{project}/runs", headers=headers)).status_code == 402
+
+    async with maker() as session, session.begin():
+        await session.execute(update(m.Profile).where(m.Profile.id == user_id).values(plan=Plan.INTERNAL))
+    assert (await client.post(f"/api/v1/projects/{project}/runs", headers=headers)).status_code == 202
+    listed = (await client.get("/api/v1/projects", headers=headers)).json()["items"]
+    assert listed[0]["latest_run"]["status"] == "queued"
+
 async def _start(client: httpx.AsyncClient, headers: dict[str, str]) -> str:
     pid = await create_project(client, headers)
     res = await client.post(f"/api/v1/projects/{pid}/runs", headers=headers)

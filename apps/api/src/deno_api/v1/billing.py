@@ -152,7 +152,7 @@ async def _apply_subscription(session: AsyncSession, data: dict[str, Any], user_
     )
     await session.execute(insert(m.Profile).values(id=user_id).on_conflict_do_nothing())
     profile = await session.get(m.Profile, user_id)
-    if profile is not None:
+    if profile is not None and profile.plan != Plan.INTERNAL:
         profile.plan = plan
     log.info("subscription_updated", user_id=str(user_id), plan=plan.value, status=sub_status)
 

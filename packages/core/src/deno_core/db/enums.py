@@ -71,6 +71,8 @@ class StoryCategory(StrEnum):
 class Plan(StrEnum):
     FREE = "free"
     PRO = "pro"
+    # Team / tester accounts: effectively unlimited quotas, never changed by billing (migration 0004).
+    INTERNAL = "internal"
 
 
 class UsageKind(StrEnum):

@@ -250,7 +250,7 @@ function send<T>(method: string, path: string, body?: unknown, extra: Record<str
 const enc = encodeURIComponent;
 
 export interface Billing {
-  plan: 'free' | 'pro';
+  plan: 'free' | 'pro' | 'internal';
   status: string;
   current_period_end: string | null;
   billing_enabled: boolean;
