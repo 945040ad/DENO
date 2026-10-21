@@ -139,7 +139,12 @@ export interface GateFinding {
   message: string;
   quote: string;
   fix: string;
-  severity: 'block' | 'warn';
+  /**
+   * 'block' and 'warn' cost 15 and 5 points of the gate score. 'info' costs nothing and is
+   * excluded from both finding lists: the quality_verification layer reports every dimension
+   * this way, because a quality score never blocks a draft and is not ban risk.
+   */
+  severity: 'block' | 'warn' | 'info';
 }
 
 export interface GateLayer {
@@ -147,6 +152,13 @@ export interface GateLayer {
   passed: boolean;
   score: number | null;
   findings: GateFinding[];
+}
+
+export interface QualityDimension {
+  name: string;
+  score: number;
+  weight: number;
+  flaws: string[];
 }
 
 export interface Draft {
@@ -157,6 +169,12 @@ export interface Draft {
   status: DraftStatus;
   edited_by_user: boolean;
   gates: GateLayer[];
+  /** Overall 1–10 quality score; null for drafts written before quality verification shipped. */
+  quality_score: number | null;
+  quality_explanation: string | null;
+  quality_dimensions: QualityDimension[] | null;
+  /** The bar this draft was scored against — adaptive, or the founder's own setting. */
+  quality_threshold: number | null;
 }
 
 export interface Brief {
@@ -183,6 +201,25 @@ export interface Audit {
   passed: boolean;
   layers: GateLayer[];
   autofixed: string;
+}
+
+export interface QualityHistoryItem {
+  draft_id: string;
+  brief_id: string;
+  platform: string;
+  quality_score: number;
+  passed: boolean;
+  created_at: string;
+  dimensions: QualityDimension[];
+}
+
+export interface QualityTrend {
+  /** Newest first. */
+  items: QualityHistoryItem[];
+  avg_score: number | null;
+  trend: 'improving' | 'stable' | 'declining' | null;
+  adaptive_threshold: number;
+  total_drafts: number;
 }
 
 export interface StreamEvent {
@@ -324,6 +361,7 @@ export const api = {
   exportDraft: (draftId: string) => send<Draft>('POST', `/drafts/${enc(draftId)}/export`),
   audit: (text: string, platform: GatePlatform, community?: string | null) =>
     send<Audit>('POST', '/gates/audit', { text, platform, community: community ?? null }),
+  qualityHistory: (limit = 50) => request<QualityTrend>(`/quality/history?limit=${limit}`),
 };
 
 /**

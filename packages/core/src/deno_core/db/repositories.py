@@ -670,6 +670,7 @@ class UserScope:
                     passed=bool(layer["passed"]),
                     score=layer.get("score"),
                     findings=_jsonable(layer.get("findings", [])),
+                    meta=_jsonable(layer["meta"]) if layer.get("meta") is not None else None,
                 )
             )
         await self.session.flush()

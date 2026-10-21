@@ -73,6 +73,11 @@ class Profile(TimestampMixin, Base):
     handles: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
     voice_preset: Mapped[str | None] = mapped_column(sa.String(40))
     notification_prefs: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    # Per-dimension quality weights (nullable; when null, defaults from deno_gates.quality are used).
+    # Keys are dimension names, values are floats (e.g. {"hook_strength": 2.0, "readability": 0.5}).
+    quality_weights: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Override the default quality threshold (1–10). NULL = use system default (7).
+    quality_threshold: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
 
 
 class ApiAuditLog(IdMixin, Base):
@@ -352,7 +357,12 @@ class GateResult(IdMixin, TenantMixin, Base):
     passed: Mapped[bool]
     score: Mapped[float | None]
     findings: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    # Structured, machine-readable extras for a layer (e.g. the quality_verification layer's
+    # real per-dimension weight and plain-English explanation). NULL for every other layer.
+    meta: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=sa.func.now())
+
+    __table_args__ = (Index("ix_gate_results_user_layer_created", "user_id", "layer", "created_at"),)
 
 
 class HookPattern(IdMixin, TimestampMixin, Base):

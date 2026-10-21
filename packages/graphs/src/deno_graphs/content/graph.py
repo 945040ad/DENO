@@ -1,6 +1,7 @@
 """Content graph.
 
-brief_planner ─► [Send] draft×brief (write → L1 autofix → gates → rewrite failing spans ≤2 → L5 judge)
+brief_planner ─► [Send] draft×brief (write → L1 autofix → gates → rewrite failing spans ≤2 → L5 judge
+                                      → quality verify (1–10) → regen if <7, up to 3 tries)
               ─► assemble
 
 Honesty rules enforced in code, not just in prompts:
@@ -8,6 +9,8 @@ Honesty rules enforced in code, not just in prompts:
   check with ``allowed_numbers``). Anything else blocks the draft.
 - Drafts are never posted. Approval, edits and export happen through the API; an edited draft is re-gated.
 - Promotional slots are capped (≤1 in 10) and never placed in communities whose rules forbid promotion.
+- Post-generation quality verification ranks every draft 1–10 on 10 dimensions.  If a draft scores below
+  the threshold (default 7) it is regenerated with the specific flaws fed back to the LLM.
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Send
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 
 from deno_core.db import models as m
 from deno_core.db.enums import DraftStatus, Platform
@@ -33,12 +37,34 @@ from deno_core.logging import get_logger
 from deno_core.observability import GATE_RESULTS
 from deno_core.runs import RunContext
 from deno_gates import CommunityRules, GateContext, VoiceProfile, autofix, number_words_in, numbers_in, run_gates
+from deno_gates.quality import MAX_REGEN_ATTEMPTS, QualityVerdict, compute_adaptive_threshold, score_quality
 from deno_graphs.content.hooks import HOOKS, NEEDS_STORY, NO_STORY_HOOKS, hook_list
 from deno_llm import LLMStack, Role, get_prompt
 
 log = get_logger(__name__)
 MAX_REWRITES = 2
 NO_PROMO = re.compile(r"strict|feedback thread only|no self|not allowed|banned|zero", re.IGNORECASE)
+
+# ---------------------------------------------------------------------------
+# LLM quality-score parser (strict line protocol, like the L5 judge)
+# ---------------------------------------------------------------------------
+
+_QS_LINE = re.compile(r"^\s*(HOOK_STRENGTH|ENGAGEMENT_POTENTIAL|ORIGINALITY)\s*:\s*(\d{1,2})", re.MULTILINE)
+
+
+def _parse_llm_quality_scores(raw: str) -> dict[str, float]:
+    """Parse the three subjective dimension scores from the LLM quality-scorer response."""
+    out: dict[str, float] = {}
+    for m_ in _QS_LINE.finditer(raw):
+        key = m_.group(1).lower()
+        val = min(10, max(0, int(m_.group(2))))
+        if key == "hook_strength":
+            out["hook_strength"] = float(val)
+        elif key == "engagement_potential":
+            out["engagement_potential"] = float(val)
+        elif key == "originality":
+            out["originality_llm"] = float(val)
+    return out
 
 
 # ---- schemas ---------------------------------------------------------------------------
@@ -348,7 +374,13 @@ async def brief_planner(state: ContentState, config: RunnableConfig) -> dict[str
 def fan_out(state: ContentState) -> list[Send] | str:
     if not state.get("briefs"):
         return "assemble"
-    return [Send("draft", {**b, "plan_id": state["plan_id"], "run_id": state.get("run_id")}) for b in state["briefs"]]
+    return [
+        Send(
+            "draft",
+            {**b, "plan_id": state["plan_id"], "project_id": state["project_id"], "run_id": state.get("run_id")},
+        )
+        for b in state["briefs"]
+    ]
 
 
 def _findings_text(report: Any, judge: JudgeVerdict | None = None) -> str:
@@ -369,6 +401,34 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
         story = await scope.get_story(brief.story_entry_id) if brief.story_entry_id else None
         samples = await scope.list_voice_samples()
         profile_row = await scope.latest_voice_profile()
+        project = await scope.get_project(uuid.UUID(payload["project_id"]))
+        # Fetch user's quality settings from their profile
+        user_profile = await scope.ensure_profile()
+        user_quality_weights: dict[str, float] | None = getattr(user_profile, "quality_weights", None)
+        user_quality_threshold: int | None = getattr(user_profile, "quality_threshold", None)
+        # Fetch historical quality scores for adaptive threshold (#4): most recent first off the
+        # index, then reversed so compute_adaptive_threshold sees them oldest→newest.
+        historical_scores: list[float] = []
+        try:
+            hist_rows = (
+                (
+                    await scope.session.execute(
+                        select(m.GateResult.score)
+                        .where(
+                            m.GateResult.user_id == scope.user_id,
+                            m.GateResult.layer == "quality_verification",
+                            m.GateResult.score.is_not(None),
+                        )
+                        .order_by(m.GateResult.created_at.desc())
+                        .limit(50)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            historical_scores = [float(s) for s in reversed(hist_rows)]
+        except Exception as exc:
+            log.warning("quality_history_fetch_failed", error=type(exc).__name__)  # fall back to DEFAULT_THRESHOLD
         claims: list[m.Claim] = []
         if payload.get("run_id"):
             claims = [c for c in await scope.list_claims(uuid.UUID(str(payload["run_id"]))) if c.analyst == "pain"][:6]
@@ -486,7 +546,146 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
                 ],
             }
         )
-    passed = report.passed and (judge is None or judge.passed)
+    gate_passed = report.passed and (judge is None or judge.passed)
+
+    # ── Quality verification safeguard ─────────────────────────────────────────
+    # After the gate/judge pipeline finishes, evaluate the draft on 10 dimensions
+    # (1-10).  If it scores below the threshold, regenerate with specific flaw
+    # feedback.  Up to MAX_REGEN_ATTEMPTS tries; always keep the best version.
+    quality_verdict: QualityVerdict | None = None
+    quality_regens = 0
+    best_text = text
+    best_score = 0.0
+    best_report = report
+    best_layers = layers
+    best_gate_passed = gate_passed
+    product_desc = getattr(project, "idea", "")[:400] if project else ""
+    # Compute adaptive threshold from history + user preference (#4)
+    effective_threshold = compute_adaptive_threshold(
+        historical_scores,
+        user_threshold=user_quality_threshold,
+    )
+
+    if gate_passed:
+        quality_scorer_prompt = get_prompt("content.quality_scorer")
+        quality_rewrite_prompt = get_prompt("content.quality_rewrite")
+
+        for attempt in range(MAX_REGEN_ATTEMPTS + 1):  # attempt 0 = initial draft, 1-3 = regens
+            # Step 1: get the three subjective LLM scores
+            llm_scores: dict[str, float] = {}
+            try:
+                qs_raw = await d.stack.router.chat(Role.JUDGE, temperature=0).ainvoke(
+                    quality_scorer_prompt.messages(
+                        platform=platform,
+                        community_line=community_line,
+                        product=product_desc,
+                        story=story_text or "none",
+                        text=text,
+                    ),
+                    config=quality_scorer_prompt.config(brief_id=str(brief_id), attempt=attempt),
+                )
+                llm_scores = _parse_llm_quality_scores(str(qs_raw.content))
+            except Exception as exc:
+                log.warning("quality_scorer_failed", error=type(exc).__name__, attempt=attempt)
+
+            # Step 2: compute the full 10-dimension quality verdict, using the user's custom
+            # weights (if any) and the adaptive/user threshold computed above.
+            quality_verdict = score_quality(
+                text,
+                report,
+                ctx,
+                profile=profile,
+                llm_scores=llm_scores,
+                threshold=effective_threshold,
+                custom_weights=user_quality_weights,
+            )
+
+            # Track the best version so far
+            if quality_verdict.overall_score > best_score:
+                best_score = quality_verdict.overall_score
+                best_text = text
+                best_report = report
+                best_layers = layers
+                best_gate_passed = gate_passed
+
+            log.info(
+                "quality_check",
+                brief_id=str(brief_id),
+                attempt=attempt,
+                score=quality_verdict.overall_score,
+                passed=quality_verdict.passed,
+                threshold=effective_threshold,
+            )
+            await d.ctx.emit(
+                "quality_check",
+                brief_id=str(brief_id),
+                attempt=attempt,
+                score=quality_verdict.overall_score,
+                passed=quality_verdict.passed,
+            )
+
+            # Step 3: if quality passes or we've exhausted regen attempts, stop
+            if quality_verdict.passed or attempt >= MAX_REGEN_ATTEMPTS:
+                break
+
+            # Step 4: regenerate with the flaw report
+            quality_regens += 1
+            log.info(
+                "quality_regen",
+                brief_id=str(brief_id),
+                attempt=quality_regens,
+                previous_score=quality_verdict.overall_score,
+                flaws=quality_verdict.flaw_summary[:500],
+            )
+            await d.ctx.emit(
+                "quality_regen",
+                brief_id=str(brief_id),
+                attempt=quality_regens,
+                previous_score=quality_verdict.overall_score,
+            )
+
+            try:
+                regen_raw = await d.stack.router.chat(Role.STRONG, temperature=0.6).ainvoke(
+                    quality_rewrite_prompt.messages(
+                        platform=platform,
+                        community_line=community_line,
+                        story=story_text or "none",
+                        text=text,
+                        previous_score=f"{quality_verdict.overall_score:.1f}",
+                        flaw_summary=quality_verdict.flaw_summary,
+                    ),
+                    config=quality_rewrite_prompt.config(brief_id=str(brief_id), regen=quality_regens),
+                )
+                text = autofix(str(regen_raw.content))
+            except Exception as exc:
+                log.warning("quality_regen_failed", error=type(exc).__name__, attempt=quality_regens)
+                break
+
+            # Re-run the full gate pipeline on the regenerated text
+            report = run_gates(text, ctx, profile=profile)
+            if not report.passed:
+                # Regeneration broke a hard gate — revert to best so far
+                log.warning("quality_regen_broke_gate", brief_id=str(brief_id), attempt=quality_regens)
+                text = best_text
+                report = best_report
+                layers = best_layers
+                gate_passed = best_gate_passed
+                break
+            layers = cast(list[dict[str, Any]], report.to_dict()["layers"])
+            gate_passed = True
+
+        # Always use the best version if we exhausted attempts without passing
+        if quality_verdict and not quality_verdict.passed and best_score > quality_verdict.overall_score:
+            text = best_text
+            report = best_report
+            layers = best_layers
+            gate_passed = best_gate_passed
+
+    # Add quality verdict to the stored gate layers.
+    if quality_verdict is not None:
+        layers.append(quality_verdict.to_gate_layer())
+
+    passed = gate_passed
     GATE_RESULTS.labels("passed" if passed else "failed").inc()
     async with await d.scope() as scope:
         brief = await scope.get_brief(brief_id)
@@ -497,8 +696,27 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
             status=DraftStatus.GATED if passed else DraftStatus.DRAFT,
             gate_layers=layers,
         )
-    await d.ctx.emit("node_finished", node="draft", brief_id=str(brief_id), passed=passed, rewrites=rewrites)
-    return {"drafted": [{"brief_id": str(brief_id), "draft_id": str(row.id), "passed": passed, "rewrites": rewrites}]}
+    await d.ctx.emit(
+        "node_finished",
+        node="draft",
+        brief_id=str(brief_id),
+        passed=passed,
+        rewrites=rewrites,
+        quality_score=quality_verdict.overall_score if quality_verdict else None,
+        quality_regens=quality_regens,
+    )
+    return {
+        "drafted": [
+            {
+                "brief_id": str(brief_id),
+                "draft_id": str(row.id),
+                "passed": passed,
+                "rewrites": rewrites,
+                "quality_score": quality_verdict.overall_score if quality_verdict else None,
+                "quality_regens": quality_regens,
+            }
+        ]
+    }
 
 
 async def assemble(state: ContentState, config: RunnableConfig) -> dict[str, Any]:

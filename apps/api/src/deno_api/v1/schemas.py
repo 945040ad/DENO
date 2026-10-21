@@ -239,6 +239,8 @@ class MeOut(BaseModel):
     handles: list[Handle] = Field(default_factory=list)
     voice_preset: str | None = None
     notification_prefs: dict[str, bool] = Field(default_factory=dict)
+    quality_weights: dict[str, float] | None = Field(default=None, description="Per-dimension quality weights (0-3)")
+    quality_threshold: int | None = Field(default=None, description="Custom quality threshold (5-9)")
 
 
 class MeUpdate(BaseModel):
@@ -258,6 +260,13 @@ class MeUpdate(BaseModel):
         ]
         | None
     ) = None
+    quality_weights: dict[str, float] | None = Field(
+        default=None,
+        description="Per-dimension quality weights. Keys: hook_strength, specificity, voice_authenticity, "
+        "platform_fit, engagement_potential, story_grounding, slop_cleanliness, readability, "
+        "originality, community_compliance. Values: 0.0–3.0.",
+    )
+    quality_threshold: int | None = Field(default=None, ge=5, le=9, description="Custom quality threshold (5-9)")
 
 
 # ---- takedowns --------------------------------------------------------------------

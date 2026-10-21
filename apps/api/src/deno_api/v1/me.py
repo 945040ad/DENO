@@ -31,6 +31,8 @@ def _me_out(scope_user_id: Any, email: str | None, profile: Any) -> MeOut:
         handles=[Handle.model_validate(h) for h in profile.handles or [] if isinstance(h, dict)],
         voice_preset=profile.voice_preset,
         notification_prefs={k: bool(v) for k, v in (profile.notification_prefs or {}).items()},
+        quality_weights=profile.quality_weights,
+        quality_threshold=profile.quality_threshold,
     )
 
 

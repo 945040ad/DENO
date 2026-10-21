@@ -1,6 +1,6 @@
 # Deno — Progress
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-21
 **Current work:** Flagship rebuild — `.claude/prds/deno-flagship.prd.md`, plan `docs/08_DEVELOPMENT_PLAN.md`
 **Stack decisions (2026-09-24):** hosted Supabase Auth (no local containers) · Next.js 16 web client, pixel-identical to the v1 UI · LangGraph 1.2 + LangChain 1.x agents on NVIDIA NIM · Postgres + pgvector on the same Supabase project.
 
@@ -32,6 +32,29 @@ The v1 prototype (8-agent DAG, anti-slop engines, static UI + Deno gateway) is d
 ---
 
 ## Log
+
+### 2026-10-21 — Quality verification safeguard (Tier 1), fixed before it ever ran
+- **Post-generation quality scorer** (`deno_gates.quality`): 10 weighted dimensions (hook, specificity, voice, platform fit, engagement, story grounding, slop cleanliness, readability, originality, community compliance), 3 of them LLM-judged (`content.quality_scorer` prompt), 7 deterministic. Below threshold → up to 3 targeted regens (`content.quality_rewrite`) with the specific flaws fed back; always keeps the best-scored version if none clears the bar. Wired into the content graph's `draft` node after L1–L5.
+- **Per-user tuning:** `profiles.quality_weights` / `quality_threshold` (migration `0005`); an adaptive threshold (`compute_adaptive_threshold`) nudges the bar up for users whose recent drafts consistently score 8+, and stays lenient for new accounts, clamped to [5, 9].
+- **Found and fixed before any of this had run once:**
+  - The draft node's `project_id` lookup fell back to the plan id when the project id was never put in the `Send` payload — `get_project` raised `NotFound` on every single brief, so content plans could not generate at all. Fixed by passing `project_id` through `fan_out`'s `Send`.
+  - `effective_threshold` (adaptive + user override) was computed but the call into `score_quality` still hardcoded `DEFAULT_THRESHOLD` — the per-user and adaptive thresholds did nothing.
+  - `user_quality_weights` was fetched from the profile but never passed to `score_quality(custom_weights=...)` — the configurable-weights feature did nothing.
+  - The adaptive-threshold history query ordered by `created_at` ascending with `LIMIT 50` — it fed the function a user's oldest 50 scores, not their most recent 50.
+  - The verdict's `explanation` and each dimension's real `weight` were never persisted; the API was reverse-parsing them out of a `"name: 8.0/10"` findings string and inventing a generic explanation + a fake `weight=1.0` for every dimension. Fixed by adding `gate_results.meta` (migration `0005`, indexed `(user_id, layer, created_at)`) and `QualityVerdict.to_gate_layer()`, used by both the graph and the API so the shape can't drift.
+  - Editing a draft by hand re-ran the anti-slop gates but never re-scored quality, so a manual edit could quietly tank the score with no signal. `PATCH /drafts/{id}` now re-scores on every gate-passing edit, same rubric, same adaptive threshold.
+- **Workspace UI** (`web/`, the piece that did not exist at all — none of this was visible outside the JSON):
+  - `Draft` gains `quality_score` / `quality_explanation` / `quality_dimensions` / `quality_threshold` (the last added to `DraftOut` this session — the client needs the bar to draw against), and `GateFinding.severity` gains `'info'`.
+  - A **quality panel** under the deduction breakdown: the score against the bar, the plain-English explanation, and one horizontal bar per dimension with the pass bar drawn as a reference notch, plus the per-dimension flaw list. Deliberately **not** the radar chart the old field comment suggested — radar distorts magnitude by area and implies the axis order means something.
+  - A **quality trend block**: average, direction, current bar and a sparkline over recent drafts, from `GET /content/quality/history`; refreshed after each save.
+  - Saving an edit now says so when quality dropped, instead of only "Passes every gate".
+- **Two findings from actually rendering it** (temporary preview route + Playwright against system Chrome, since no Playwright browsers are installed):
+  - The pass-bar reference line was invisible: any tint dark enough to read on the empty track vanished into the near-black fill. It is now a paper-coloured notch with an ink edge, which reads on both.
+  - Quality dimensions were `severity="block"`, and the web client charges **15 points of the 0–100 gate score per blocking finding** — a draft with four weak dimensions would have shown a ban-risk score 60 points lower, with "blocking" issues listed on a draft that is still GATED and approvable. Quality is not ban risk and never blocks: all quality findings are now `"info"`, which both finding lists and the score ignore.
+  - Colour choices were validated, not eyeballed: this palette's green↔red is ΔE 4.6 under protanopia and amber↔red ΔE 1.1 under deuteranopia, so state is never carried by hue — every bar is one ink hue, and pass/fail is carried by the printed score, a ↓ marker and the notch.
+- **Tests:** `tests/unit/test_quality.py` 15 → 21 (added: custom weights actually move the score, unknown/out-of-range weights are ignored, adaptive threshold math, `to_gate_layer()` shape, and that quality findings never block or warn). 171 unit tests, ruff and `mypy --strict` clean (87 files); `tsc`, `eslint` and `next build` clean.
+- **Also fixed, unrelated:** a stale uv cache had hidden (macOS `UF_HIDDEN`) `.pth` files in `.venv/lib/.../site-packages`, which Python 3.12's `site` module silently skips — every workspace package (`deno_core`, `deno_gates`, …) was unimportable and the whole suite failed to collect. Recreating `.venv` fixed it; also downgraded `uv` 0.13.4 → 0.13.3 since 0.13.4 kept re-setting the flag on every `uv run`.
+- **Integration tests not run this session:** Docker daemon wasn't running locally, so the Postgres-backed integration suite (`tests/integration/`) wasn't exercised; the `meta` migration and the `_recent_quality_scores`/`add_draft` wiring should get a real-DB pass before merge.
 
 ### 2026-10-13 — Deployed (free tier)
 - **Live:** web https://deno-web-eight.vercel.app (Vercel `deno-web`), API on Cloud Run `deno-api` (GCP `deno-gtm`, `asia-northeast1`), graph runs as Cloud Run Job `deno-run`, private SearXNG, Cloud Scheduler crons, Upstash Redis, Supabase DB already at migration `0003`.

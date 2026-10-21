@@ -28,9 +28,11 @@ from deno_gates import (
     VoiceProfile,
     autofix,
     build_profile,
+    compute_adaptive_threshold,
     number_words_in,
     numbers_in,
     run_gates,
+    score_quality,
 )
 
 router = APIRouter(tags=["content"])
@@ -113,6 +115,13 @@ class GateLayerOut(BaseModel):
     findings: list[dict[str, Any]]
 
 
+class QualityDimensionOut(BaseModel):
+    name: str
+    score: float
+    weight: float
+    flaws: list[str] = Field(default_factory=list)
+
+
 class DraftOut(BaseModel):
     id: uuid.UUID
     version: int
@@ -121,6 +130,14 @@ class DraftOut(BaseModel):
     status: DraftStatus
     edited_by_user: bool
     gates: list[GateLayerOut]
+    quality_score: float | None = Field(default=None, description="Overall quality score (1-10)")
+    quality_explanation: str | None = Field(default=None, description="Plain-English quality explanation")
+    quality_dimensions: list[QualityDimensionOut] | None = Field(
+        default=None, description="Per-dimension scores, each 0-10 with the weight it carried"
+    )
+    quality_threshold: int | None = Field(
+        default=None, description="The bar this draft was scored against (adaptive or user-set)"
+    )
 
 
 class BriefOut(BaseModel):
@@ -360,6 +377,38 @@ async def list_plans(project_id: uuid.UUID, scope: Scope) -> list[PlanOut]:
 
 
 def _draft_out(draft: m.ContentDraft, gates: list[m.GateResult]) -> DraftOut:
+    gate_layers = [
+        GateLayerOut(layer=g.layer, passed=g.passed, score=g.score, findings=list(g.findings)) for g in gates
+    ]
+
+    # Extract quality data from the quality_verification gate layer's ``meta`` (if present) —
+    # the real per-dimension weight and the explanation the graph already computed, not a
+    # re-derived guess.
+    quality_score: float | None = None
+    quality_explanation: str | None = None
+    quality_dimensions: list[QualityDimensionOut] | None = None
+    quality_threshold: int | None = None
+    quality_gate = next((g for g in gates if g.layer == "quality_verification"), None)
+    if quality_gate is not None:
+        quality_score = quality_gate.score
+        meta = quality_gate.meta or {}
+        quality_explanation = meta.get("explanation")
+        quality_threshold = meta.get("threshold")
+        flaws_by_name: dict[str, list[str]] = {}
+        for f in quality_gate.findings:
+            if isinstance(f, dict) and f.get("rule_id", "").startswith("quality."):
+                name = f["rule_id"].removeprefix("quality.")
+                fix_text = f.get("fix", "")
+                flaws_by_name[name] = [s.strip() for s in fix_text.split(";") if s.strip() and s.strip() != "OK"]
+        dims = [
+            QualityDimensionOut(
+                name=dim["name"], score=dim["score"], weight=dim["weight"], flaws=flaws_by_name.get(dim["name"], [])
+            )
+            for dim in meta.get("dimensions", [])
+        ]
+        if dims:
+            quality_dimensions = dims
+
     return DraftOut(
         id=draft.id,
         version=draft.version,
@@ -367,7 +416,11 @@ def _draft_out(draft: m.ContentDraft, gates: list[m.GateResult]) -> DraftOut:
         first_comment=draft.first_comment,
         status=draft.status,
         edited_by_user=draft.edited_by_user,
-        gates=[GateLayerOut(layer=g.layer, passed=g.passed, score=g.score, findings=list(g.findings)) for g in gates],
+        gates=gate_layers,
+        quality_score=quality_score,
+        quality_explanation=quality_explanation,
+        quality_dimensions=quality_dimensions,
+        quality_threshold=quality_threshold,
     )
 
 
@@ -472,20 +525,64 @@ async def _gate_context(scope: UserScope, brief: m.ContentBrief) -> tuple[GateCo
     return ctx, profile
 
 
+async def _recent_quality_scores(scope: UserScope, limit: int = 50) -> list[float]:
+    """Most recent ``quality_verification`` scores for this user, oldest→newest."""
+    rows = (
+        (
+            await scope.session.execute(
+                select(m.GateResult.score)
+                .where(
+                    m.GateResult.user_id == scope.user_id,
+                    m.GateResult.layer == "quality_verification",
+                    m.GateResult.score.is_not(None),
+                )
+                .order_by(m.GateResult.created_at.desc())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [float(s) for s in reversed(rows) if s is not None]
+
+
 @router.patch("/drafts/{draft_id}")
 async def edit_draft(draft_id: uuid.UUID, body: DraftEdit, scope: Scope) -> DraftOut:
-    """Save your edit as a new version and re-run the gates on it."""
+    """Save your edit as a new version, re-run the gates and re-score quality on it.
+
+    A manual edit can accidentally undo a hook, a specific number or the voice match that made
+    the original draft pass — this re-runs the same deterministic quality rubric the content
+    graph uses so an edit that quietly tanks the score doesn't look identical to one that didn't.
+    """
     current = await scope.get_draft(draft_id)
     brief = await scope.get_brief(current.brief_id)
     ctx, profile = await _gate_context(scope, brief)
     report = run_gates(body.text, ctx, profile=profile)
+    layers = cast(list[dict[str, Any]], report.to_dict()["layers"])
+
+    if report.passed:
+        user_profile = await scope.ensure_profile()
+        threshold = compute_adaptive_threshold(
+            await _recent_quality_scores(scope),
+            user_threshold=getattr(user_profile, "quality_threshold", None),
+        )
+        quality_verdict = score_quality(
+            body.text,
+            report,
+            ctx,
+            profile=profile,
+            threshold=threshold,
+            custom_weights=getattr(user_profile, "quality_weights", None),
+        )
+        layers.append(quality_verdict.to_gate_layer())
+
     new = await scope.add_draft(
         brief,
         text=body.text,
         first_comment=current.first_comment,
         status=DraftStatus.GATED if report.passed else DraftStatus.DRAFT,
         edited_by_user=True,
-        gate_layers=report.to_dict()["layers"],  # type: ignore[arg-type]
+        gate_layers=layers,
     )
     return _draft_out(new, (await scope.gate_results([new.id])).get(new.id, []))
 
@@ -560,6 +657,112 @@ async def audit(body: AuditIn, scope: Scope) -> AuditOut:
         passed=report.passed,
         layers=[GateLayerOut(**layer) for layer in layers],
         autofixed=autofix(body.text),
+    )
+
+
+# ---- quality history (#3) ------------------------------------------------------------------
+
+
+class QualityHistoryItem(BaseModel):
+    draft_id: uuid.UUID
+    brief_id: uuid.UUID
+    platform: str
+    quality_score: float
+    passed: bool
+    created_at: datetime
+    dimensions: list[QualityDimensionOut]
+
+
+class QualityTrendOut(BaseModel):
+    items: list[QualityHistoryItem]
+    avg_score: float | None = None
+    trend: Literal["improving", "stable", "declining"] | None = None
+    adaptive_threshold: int
+    total_drafts: int
+
+
+@router.get("/quality/history")
+async def quality_history(scope: Scope, limit: int = 50) -> QualityTrendOut:
+    """Quality score history for the current user's drafts. Feeds the trend chart."""
+    from deno_gates.quality import compute_adaptive_threshold
+
+    limit = min(limit, 200)
+    # Query gate results for quality_verification layer, ordered by creation date
+    rows = (
+        await scope.session.execute(
+            select(m.GateResult, m.ContentDraft, m.ContentBrief)
+            .join(m.ContentDraft, m.GateResult.draft_id == m.ContentDraft.id)
+            .join(m.ContentBrief, m.ContentDraft.brief_id == m.ContentBrief.id)
+            .where(
+                m.GateResult.user_id == scope.user_id,
+                m.GateResult.layer == "quality_verification",
+                m.GateResult.score.is_not(None),
+            )
+            .order_by(m.GateResult.created_at.desc())
+            .limit(limit)
+        )
+    ).all()
+
+    items: list[QualityHistoryItem] = []
+    scores: list[float] = []
+    for gate_row, draft, brief in rows:
+        meta = gate_row.meta or {}
+        flaws_by_name: dict[str, list[str]] = {}
+        for f in gate_row.findings:
+            if isinstance(f, dict) and f.get("rule_id", "").startswith("quality."):
+                name = f["rule_id"].removeprefix("quality.")
+                fix_text = f.get("fix", "")
+                flaws_by_name[name] = [s.strip() for s in fix_text.split(";") if s.strip() and s.strip() != "OK"]
+        dims = [
+            QualityDimensionOut(
+                name=dim["name"], score=dim["score"], weight=dim["weight"], flaws=flaws_by_name.get(dim["name"], [])
+            )
+            for dim in meta.get("dimensions", [])
+        ]
+
+        score = float(gate_row.score)
+        scores.append(score)
+        items.append(
+            QualityHistoryItem(
+                draft_id=draft.id,
+                brief_id=brief.id,
+                platform=brief.platform.value,
+                quality_score=score,
+                passed=gate_row.passed,
+                created_at=gate_row.created_at,
+                dimensions=dims,
+            )
+        )
+
+    # Compute trend
+    avg_score = round(sum(scores) / len(scores), 1) if scores else None
+    trend: Literal["improving", "stable", "declining"] | None = None
+    if len(scores) >= 6:
+        recent_half = scores[: len(scores) // 2]
+        older_half = scores[len(scores) // 2 :]
+        recent_avg = sum(recent_half) / len(recent_half)
+        older_avg = sum(older_half) / len(older_half)
+        diff = recent_avg - older_avg
+        if diff > 0.5:
+            trend = "improving"
+        elif diff < -0.5:
+            trend = "declining"
+        else:
+            trend = "stable"
+
+    # Compute adaptive threshold
+    profile = await scope.ensure_profile()
+    adaptive = compute_adaptive_threshold(
+        list(reversed(scores)),  # oldest-first for the function
+        user_threshold=getattr(profile, "quality_threshold", None),
+    )
+
+    return QualityTrendOut(
+        items=items,
+        avg_score=avg_score,
+        trend=trend,
+        adaptive_threshold=adaptive,
+        total_drafts=len(items),
     )
 
 

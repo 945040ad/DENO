@@ -14,10 +14,13 @@ import {
   type Brief,
   type Claim,
   type Community,
+  type Draft,
   type GateLayer,
   type GatePlatform,
   type Plan,
   type Project,
+  type QualityDimension,
+  type QualityTrend,
   type Run,
   type Report,
   type StreamEvent,
@@ -790,20 +793,194 @@ const PLATFORM_LINKS: Record<string, string> = {
   x: 'https://x.com/compose/post',
 };
 
+const DIMENSION_LABELS: Record<string, string> = {
+  hook_strength: 'Hook strength',
+  specificity: 'Specificity',
+  voice_authenticity: 'Voice authenticity',
+  platform_fit: 'Platform fit',
+  engagement_potential: 'Engagement potential',
+  story_grounding: 'Story grounding',
+  slop_cleanliness: 'Slop cleanliness',
+  readability: 'Readability',
+  originality: 'Originality',
+  community_compliance: 'Community compliance',
+};
+
+function dimensionLabel(name: string): string {
+  return DIMENSION_LABELS[name] ?? name.replace(/_/g, ' ');
+}
+
+/**
+ * Ten dimensions, one measure (0–10): a horizontal bar per dimension, one ink hue for all of
+ * them, with the pass bar drawn once as a reference line. Deliberately not a radar chart — radar
+ * distorts magnitude by area and makes the axis order look meaningful when it isn't.
+ *
+ * State (meets the bar / below it) is carried by the printed score and a "BELOW BAR" tag, never
+ * by hue alone: this palette's green↔red pair is ΔE 4.6 under protanopia, i.e. indistinguishable.
+ */
+function QualityPanel({
+  score,
+  explanation,
+  dimensions,
+  threshold,
+  stale,
+}: {
+  score: number;
+  explanation: string | null;
+  dimensions: QualityDimension[];
+  threshold: number;
+  stale: boolean;
+}) {
+  const tone = scoreTone(score * 10);
+  return (
+    <div style={{ padding: 'clamp(18px,2.4vw,28px) clamp(14px,2vw,22px)', borderBottom: '1.5px solid var(--ink)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+        <div className="dv-label" style={{ margin: 0 }}>QUALITY VERIFICATION</div>
+        <span className="dv-mono dv-muted" style={{ fontSize: 10 }}>
+          {stale ? 'SCORED BEFORE YOUR EDIT · SAVE TO RE-SCORE' : `BAR ${threshold}/10 · WEIGHTED OVER 10 DIMENSIONS`}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+        <span
+          className="dv-mono"
+          style={{ display: 'flex', alignItems: 'baseline', gap: 4, border: '1.5px solid var(--ink)', background: tone.bg, padding: '6px 10px', flex: 'none' }}
+        >
+          <span className="dv-serif" style={{ fontSize: 28, lineHeight: 1 }}>{score.toFixed(1)}</span>
+          <span style={{ fontSize: 11 }}>/10</span>
+        </span>
+        <span className="dv-mono" style={{ fontSize: 11, fontWeight: 700, color: score >= threshold ? 'var(--green)' : 'var(--red-ink)', flex: 'none' }}>
+          {score >= threshold ? 'MEETS THE BAR' : 'BELOW THE BAR'}
+        </span>
+        {explanation && <span style={{ fontSize: 13, lineHeight: 1.45, minWidth: 0, flex: 1 }}>{explanation}</span>}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {dimensions.map((d) => {
+          const below = d.score < threshold;
+          return (
+            <div key={d.name} style={{ display: 'grid', gridTemplateColumns: 'minmax(96px,150px) 1fr auto', gap: 10, alignItems: 'center' }}>
+              <span className="dv-mono" style={{ fontSize: 10.5, color: 'var(--muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {dimensionLabel(d.name).toUpperCase()}
+              </span>
+              <span
+                title={d.flaws.length ? d.flaws.join(' · ') : `${dimensionLabel(d.name)} ${d.score.toFixed(1)}/10 · weight ${d.weight}×`}
+                style={{ position: 'relative', display: 'block', height: 14, background: 'var(--paper-2)', border: '1px solid rgba(16,22,19,.18)', minWidth: 0 }}
+              >
+                <span style={{ display: 'block', height: '100%', width: `${Math.max(0, Math.min(100, d.score * 10))}%`, background: below ? 'var(--ink-3)' : 'var(--ink)' }} />
+                {/* The pass bar, per row so each bar can be read against it. Drawn as a paper
+                    notch with an ink edge rather than a tinted line: a line dark enough to read
+                    on the empty track disappears into the near-black fill, and vice versa. */}
+                <span
+                  aria-hidden
+                  style={{ position: 'absolute', top: -2, bottom: -2, left: `${threshold * 10}%`, width: 2, marginLeft: -1, background: 'var(--paper)', boxShadow: '0 0 0 1px var(--ink)' }}
+                />
+              </span>
+              <span className="dv-mono" style={{ fontSize: 10.5, fontWeight: 700, flex: 'none', fontVariantNumeric: 'tabular-nums' }}>
+                {d.score.toFixed(1)}
+                <span className="dv-muted" style={{ fontWeight: 400 }}>/10</span>
+                {below && <span style={{ color: 'var(--red-ink)' }}> ↓</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {dimensions.some((d) => d.flaws.length > 0) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 14 }}>
+          {dimensions
+            .filter((d) => d.flaws.length > 0)
+            .map((d) => (
+              <div key={d.name} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: 'var(--paper-2)', border: '1px solid rgba(16,22,19,.18)', padding: '9px 12px' }}>
+                <span className="dv-mono" style={{ fontSize: 10, fontWeight: 700, flex: 'none', paddingTop: 2 }}>{d.score.toFixed(1)}</span>
+                <span style={{ fontSize: 12.5, lineHeight: 1.45, minWidth: 0 }}>
+                  <span className="dv-mono" style={{ fontSize: 10.5 }}>{dimensionLabel(d.name).toUpperCase()}</span>{' '}
+                  <span className="dv-muted">→ {d.flaws.join(' · ')}</span>
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One measure over time: a 2px line, last point marked, value printed. No per-point markers. */
+function QualitySparkline({ scores }: { scores: number[] }) {
+  if (scores.length < 2) return null;
+  const w = 260;
+  const h = 34;
+  const pad = 3;
+  const pts = scores.map((s, i) => {
+    const x = pad + (i * (w - pad * 2)) / (scores.length - 1);
+    const y = pad + (1 - Math.max(0, Math.min(10, s)) / 10) * (h - pad * 2);
+    return [x, y] as const;
+  });
+  const last = pts[pts.length - 1];
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`Last ${scores.length} quality scores, oldest to newest`} style={{ display: 'block', maxWidth: '100%' }}>
+      <polyline points={pts.map(([x, y]) => `${x},${y}`).join(' ')} fill="none" stroke="var(--ink)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={last[0]} cy={last[1]} r={4} fill="var(--ink)" stroke="var(--paper)" strokeWidth={2} />
+    </svg>
+  );
+}
+
+const TREND_COPY: Record<'improving' | 'stable' | 'declining', string> = {
+  improving: '↑ IMPROVING',
+  stable: '→ STABLE',
+  declining: '↓ DECLINING',
+};
+
+function QualityTrendBlock({ trend }: { trend: QualityTrend }) {
+  if (trend.total_drafts === 0) return null;
+  // items are newest-first; the sparkline reads oldest → newest.
+  const scores = trend.items.map((i) => i.quality_score).reverse();
+  return (
+    <div style={{ padding: 'clamp(18px,2.4vw,28px) clamp(14px,2vw,22px)', background: 'var(--paper-2)', borderBottom: '1.5px solid var(--ink)' }}>
+      <div className="dv-label" style={{ marginBottom: 12 }}>QUALITY OVER YOUR LAST {trend.total_drafts} DRAFT{trend.total_drafts === 1 ? '' : 'S'}</div>
+      <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ flex: 'none' }}>
+          <span className="dv-serif" style={{ fontSize: 26, lineHeight: 1 }}>{trend.avg_score?.toFixed(1) ?? '—'}</span>
+          <span className="dv-mono dv-muted" style={{ fontSize: 10, display: 'block', marginTop: 4 }}>AVERAGE</span>
+        </span>
+        <span style={{ flex: 'none' }}>
+          <span className="dv-mono" style={{ fontSize: 13, fontWeight: 700 }}>{trend.trend ? TREND_COPY[trend.trend] : '—'}</span>
+          <span className="dv-mono dv-muted" style={{ fontSize: 10, display: 'block', marginTop: 4 }}>
+            {trend.trend ? 'RECENT HALF VS OLDER HALF' : 'NEEDS 6 SCORED DRAFTS'}
+          </span>
+        </span>
+        <span style={{ flex: 'none' }}>
+          <span className="dv-mono" style={{ fontSize: 13, fontWeight: 700 }}>{trend.adaptive_threshold}/10</span>
+          <span className="dv-mono dv-muted" style={{ fontSize: 10, display: 'block', marginTop: 4 }}>YOUR CURRENT BAR</span>
+        </span>
+        <span style={{ flex: 'none' }}><QualitySparkline scores={scores} /></span>
+      </div>
+    </div>
+  );
+}
+
 function CalendarScreen({ plan, onPlan, onToast }: { plan: Plan; onPlan: (p: Plan) => void; onToast: (m: string) => void }) {
   const briefs = plan.briefs.filter((b) => b.draft);
   const [selected, setSelected] = useState(0);
   const [content, setContent] = useState(briefs[0]?.draft?.text ?? '');
   const [layers, setLayers] = useState<GateLayer[]>(briefs[0]?.draft?.gates ?? []);
   const [dirty, setDirty] = useState(false);
+  const [quality, setQuality] = useState<Draft | null>(briefs[0]?.draft ?? null);
+  const [trend, setTrend] = useState<QualityTrend | null>(null);
   const debounce = useRef<number | undefined>(undefined);
   const brief: Brief | undefined = briefs[selected];
+
+  const loadTrend = useCallback(() => {
+    api.qualityHistory().then(setTrend).catch(() => undefined);
+  }, []);
+  useEffect(loadTrend, [loadTrend]);
 
   function load(i: number) {
     setSelected(i);
     setDirty(false);
     setContent(briefs[i]?.draft?.text ?? '');
     setLayers(briefs[i]?.draft?.gates ?? []);
+    setQuality(briefs[i]?.draft ?? null);
   }
 
   function onChange(text: string) {
@@ -837,9 +1014,17 @@ function CalendarScreen({ plan, onPlan, onToast }: { plan: Plan; onPlan: (p: Pla
     try {
       const d = await api.editDraft(brief.draft.id, content);
       setLayers(d.gates);
+      setQuality(d);
       setDirty(false);
       await refresh();
-      onToast(d.status === 'gated' ? 'Saved. Passes every gate.' : 'Saved. Some gates still flag it.');
+      loadTrend();
+      onToast(
+        d.status !== 'gated'
+          ? 'Saved. Some gates still flag it.'
+          : d.quality_score !== null && d.quality_threshold !== null && d.quality_score < d.quality_threshold
+            ? `Saved. Passes every gate, but quality dropped to ${d.quality_score.toFixed(1)}/10.`
+            : 'Saved. Passes every gate.',
+      );
     } catch (err) {
       onToast(err instanceof Error ? err.message : String(err));
     }
@@ -927,6 +1112,17 @@ function CalendarScreen({ plan, onPlan, onToast }: { plan: Plan; onPlan: (p: Pla
             ))}
           </div>
         </div>
+
+        {quality?.quality_score !== null && quality?.quality_score !== undefined && quality.quality_dimensions && (
+          <QualityPanel
+            score={quality.quality_score}
+            explanation={quality.quality_explanation}
+            dimensions={quality.quality_dimensions}
+            threshold={quality.quality_threshold ?? 7}
+            stale={dirty}
+          />
+        )}
+        {trend && <QualityTrendBlock trend={trend} />}
 
         <div style={{ marginTop: 'auto', padding: '14px clamp(14px,2vw,22px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <span className="dv-mono dv-muted" style={{ fontSize: 10.5 }}>🔒 DENO NEVER POSTS. YOU PRESS SEND.</span>
