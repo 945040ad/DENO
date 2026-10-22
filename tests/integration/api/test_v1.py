@@ -467,6 +467,55 @@ async def test_a_draft_stays_editable_after_its_story_is_deleted(
     assert not any(f["rule_id"] == "L1.unsourced_number" for g in res.json()["gates"] for f in g["findings"])
 
 
+async def test_live_draft_check_uses_the_drafts_story_and_costs_no_audit(
+    client: httpx.AsyncClient, maker: async_sessionmaker[AsyncSession]
+) -> None:
+    user_id, headers = user_token()
+    story = await client.post(
+        "/api/v1/stories",
+        json={
+            "category": "metric",
+            "headline": "Churn fell to 3%",
+            "details": "We cut churn to 3% in a quarter.",
+            "numbers": ["3%"],
+        },
+        headers=headers,
+    )
+    pid = await create_project(client, headers)
+    async with maker() as session, session.begin():
+        scope = UserScope(session, user_id)
+        plan = await scope.create_content_plan(uuid.UUID(pid), None, 7)
+        (brief,) = await scope.replace_briefs(
+            plan.id,
+            [
+                {
+                    "day": 1,
+                    "platform": Platform.LINKEDIN,
+                    "angle": "churn",
+                    "story_entry_id": uuid.UUID(story.json()["id"]),
+                }
+            ],
+        )
+        draft = await scope.add_draft(brief, text="We cut churn to 3%.", first_comment=None, status=DraftStatus.GATED)
+
+    def rules(layers: list[dict[str, Any]]) -> set[str]:
+        return {f["rule_id"] for layer in layers for f in layer["findings"]}
+
+    sourced = await client.post(
+        f"/api/v1/drafts/{draft.id}/check", json={"text": "We cut churn to 3%."}, headers=headers
+    )
+    invented = await client.post(
+        f"/api/v1/drafts/{draft.id}/check", json={"text": "We cut churn by 42%."}, headers=headers
+    )
+    assert sourced.status_code == invented.status_code == 200
+    assert "L1.unsourced_number" not in rules(sourced.json())
+    assert "L1.unsourced_number" in rules(invented.json())
+    usage = {u["kind"]: u["used"] for u in (await client.get("/api/v1/billing", headers=headers)).json()["usage"]}
+    assert usage["audit"] == 0
+    versions = (await client.get(f"/api/v1/content-plans/{plan.id}", headers=headers)).json()["briefs"][0]["draft"]
+    assert versions["version"] == 1, "checking saves nothing"
+
+
 # ---- billing ------------------------------------------------------------------------
 
 WEBHOOK_SECRET = "whsec_test"

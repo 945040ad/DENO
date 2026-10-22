@@ -797,9 +797,14 @@ function CalendarScreen({ plan, onPlan, onToast }: { plan: Plan; onPlan: (p: Pla
   const [layers, setLayers] = useState<GateLayer[]>(briefs[0]?.draft?.gates ?? []);
   const [dirty, setDirty] = useState(false);
   const debounce = useRef<number | undefined>(undefined);
+  // Bumped whenever the editor's text stops being the one a pending live check was for, so a late
+  // answer can't paint the previous draft's (or an older edit's) findings over the current one.
+  const checkSeq = useRef(0);
   const brief: Brief | undefined = briefs[selected];
 
   function load(i: number) {
+    window.clearTimeout(debounce.current);
+    checkSeq.current += 1;
     setSelected(i);
     setDirty(false);
     setContent(briefs[i]?.draft?.text ?? '');
@@ -810,8 +815,17 @@ function CalendarScreen({ plan, onPlan, onToast }: { plan: Plan; onPlan: (p: Pla
     setContent(text);
     setDirty(true);
     window.clearTimeout(debounce.current);
+    const draftId = brief?.draft?.id;
+    if (!draftId) return;
+    const seq = ++checkSeq.current;
     debounce.current = window.setTimeout(() => {
-      api.audit(text, brief?.platform === 'reddit' ? 'reddit' : 'linkedin', brief?.community).then((a) => setLayers(a.layers)).catch(() => undefined);
+      // The draft's own gates (story numbers, community rules, voice); not counted against the audit quota.
+      api
+        .checkDraft(draftId, text)
+        .then((l) => {
+          if (seq === checkSeq.current) setLayers(l);
+        })
+        .catch(() => undefined);
     }, 400);
   }
 
@@ -835,6 +849,8 @@ function CalendarScreen({ plan, onPlan, onToast }: { plan: Plan; onPlan: (p: Pla
   async function save() {
     if (!brief?.draft) return;
     try {
+      window.clearTimeout(debounce.current);
+      checkSeq.current += 1;
       const d = await api.editDraft(brief.draft.id, content);
       setLayers(d.gates);
       setDirty(false);
@@ -939,6 +955,11 @@ function CalendarScreen({ plan, onPlan, onToast }: { plan: Plan; onPlan: (p: Pla
               className="dv-btn ghost sm"
               onClick={() => {
                 void navigator.clipboard.writeText(content);
+                if (dirty) {
+                  // The approved version isn't what was copied: don't record it as the exported post.
+                  onToast('Copied your unsaved edit. Save and approve it to mark it as posted.');
+                  return;
+                }
                 if (brief?.draft && brief.draft.status === 'approved') void api.exportDraft(brief.draft.id).then(refresh).catch(() => undefined);
                 onToast('Post copied. You are ready to publish.');
               }}

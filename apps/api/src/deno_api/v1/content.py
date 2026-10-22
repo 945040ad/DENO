@@ -494,6 +494,20 @@ async def edit_draft(draft_id: uuid.UUID, body: DraftEdit, scope: Scope) -> Draf
     return _draft_out(new, (await scope.gate_results([new.id])).get(new.id, []))
 
 
+@router.post("/drafts/{draft_id}/check")
+async def check_draft(draft_id: uuid.UUID, body: DraftEdit, scope: Scope) -> list[GateLayerOut]:
+    """Gate an unsaved edit of this draft, live as you type. Nothing is saved and nothing is counted.
+
+    It uses the draft's own context (its story's numbers, community rules, your voice), so the editor
+    flags exactly what Save will. The editor used the audit endpoint before, which knew none of that
+    and spent the monthly audit quota on every pause in typing.
+    """
+    current = await scope.get_draft(draft_id)
+    ctx, profile = await _gate_context(scope, await scope.get_brief(current.brief_id))
+    report = run_gates(body.text, ctx, profile=profile)
+    return [GateLayerOut(**layer) for layer in cast(list[dict[str, Any]], report.to_dict()["layers"])]
+
+
 @router.post("/drafts/{draft_id}/approve")
 async def approve_draft(draft_id: uuid.UUID, scope: Scope) -> DraftOut:
     draft = await scope.get_draft(draft_id)

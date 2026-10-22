@@ -320,6 +320,8 @@ export const api = {
   listPlans: (projectId: string) => request<Plan[]>(`/projects/${enc(projectId)}/content-plans`),
   plan: (planId: string) => request<Plan>(`/content-plans/${enc(planId)}`),
   editDraft: (draftId: string, text: string) => send<Draft>('PATCH', `/drafts/${enc(draftId)}`, { text }),
+  /** Gate an unsaved edit with the draft's own context. Saves nothing and isn't counted as an audit. */
+  checkDraft: (draftId: string, text: string) => send<GateLayer[]>('POST', `/drafts/${enc(draftId)}/check`, { text }),
   approveDraft: (draftId: string) => send<Draft>('POST', `/drafts/${enc(draftId)}/approve`),
   exportDraft: (draftId: string) => send<Draft>('POST', `/drafts/${enc(draftId)}/export`),
   audit: (text: string, platform: GatePlatform, community?: string | null) =>
