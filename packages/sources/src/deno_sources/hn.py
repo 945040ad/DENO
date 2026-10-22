@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from deno_sources.base import SourceClient
-from deno_sources.models import Engagement, Post, SourceName
+from deno_sources.models import Engagement, Post, SourceName, SourceUnavailable
 from deno_sources.normalize import canonical_url, clean_text, mentions_near, query_stems
 
 API = "https://hn.algolia.com/api/v1"
@@ -51,7 +51,7 @@ class HackerNewsClient(SourceClient):
             params["numericFilters"] = f"created_at_i>{int(since.timestamp())}"
         res = await self.fetcher.get(f"{API}/search", source=self.name, params=params, cache_ttl_s=6 * 3600)
         if res.status != 200:
-            return []
+            raise SourceUnavailable(f"HN search answered HTTP {res.status}")
         data = res.json()
         hits = data.get("hits", []) if isinstance(data, dict) else []
         stems = query_stems(query)

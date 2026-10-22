@@ -51,6 +51,8 @@ class SearxngClient:
                 cacheable=lambda r: blocked_engines(r) is None,
             )
             if res.status != 200:
+                if page == 1:
+                    raise SourceUnavailable(f"search answered HTTP {res.status}")
                 break
             if page == 1 and (blocked := blocked_engines(res)):
                 # Indistinguishable from "nobody talks about this" unless we say so.

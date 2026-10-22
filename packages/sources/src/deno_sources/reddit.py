@@ -12,7 +12,7 @@ import re
 from datetime import UTC, datetime
 
 from deno_sources.base import SourceClient
-from deno_sources.models import Engagement, Post, SourceName
+from deno_sources.models import Engagement, Post, SourceName, SourceUnavailable
 from deno_sources.net import Fetcher, FetchResult
 from deno_sources.normalize import canonical_url, clean_text, mentions_near, query_stems
 
@@ -118,16 +118,24 @@ class RedditClient(SourceClient):
         anchor = max(terms, key=len)
         stems = query_stems(query)
         posts: list[Post] = []
+        answered, last_status = 0, 0
         for sub in self.subreddits:
             params: dict[str, str | int] = {"subreddit": sub, "limit": 100}
             if since:
                 params["after"] = since.strftime("%Y-%m-%d")
             res = await self._get(f"{API}/comments/search", {**params, "body": anchor})
+            last_status = res.status
             if res.status == 200:
+                answered += 1
                 posts += [p for item in _data(res.json()) if (p := parse_comment(item))]
             res = await self._get(f"{API}/posts/search", {**params, "query": anchor})
+            last_status = res.status
             if res.status == 200:
+                answered += 1
                 posts += [p for item in _data(res.json()) if (p := parse_post(item))]
+        if self.subreddits and not answered:
+            # Still overloaded after the retries: say so, or coverage reads the silence as "nobody posts this".
+            raise SourceUnavailable(f"Arctic Shift answered HTTP {last_status}")
         # Every word, close together: a substring test let "ball" match every post in r/Softball.
         matched = [p for p in posts if mentions_near(p.text, stems, window=20)]
         matched.sort(key=lambda p: p.engagement.score or 0, reverse=True)

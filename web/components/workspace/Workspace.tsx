@@ -219,7 +219,7 @@ export function Workspace() {
 const STAGES: { label: string; nodes: string[] }[] = [
   { label: 'Idea Intake', nodes: ['intake'] },
   { label: 'Research Planner', nodes: ['perspective_planner', 'query_planner'] },
-  { label: 'Source Collectors', nodes: ['collect'] },
+  { label: 'Source Collectors', nodes: ['collect', 'broaden'] },
   { label: 'Evidence Index', nodes: ['ingest', 'coverage_check'] },
   { label: 'Seven Analysts', nodes: ['analyst'] },
   { label: 'Citation Judge', nodes: ['citation_validator'] },
@@ -233,6 +233,7 @@ const NODE_TEXT: Record<string, string> = {
   collect: 'collecting public posts',
   ingest: 'indexing the evidence',
   coverage_check: 'checking there is enough evidence to judge',
+  broaden: 'evidence was thin, widening the search once',
   analyst: 'analysts reading the evidence',
   citation_validator: 'checking every claim against the post it cites',
   signal_scorer: 'computing signals from the evidence',

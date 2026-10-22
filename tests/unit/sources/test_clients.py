@@ -8,7 +8,7 @@ import httpx
 import pytest
 import respx
 
-from deno_sources import SourceConfig, SourceName, build_clients, build_fetcher
+from deno_sources import SourceConfig, SourceName, SourceUnavailable, build_clients, build_fetcher
 from deno_sources.feeds import parse_producthunt_atom, parse_trends_rss
 from deno_sources.hn import parse_hit
 from deno_sources.linkedin import parse_job_cards, parse_post_page
@@ -305,12 +305,36 @@ async def test_reddit_rides_out_arctic_shift_overload_with_jittered_backoff() ->
 
 
 @respx.mock
-async def test_reddit_gives_up_after_two_retries_without_raising() -> None:
-    """A source that stays overloaded degrades to no posts; it never aborts the run."""
+async def test_reddit_that_stays_overloaded_reports_unavailable_not_zero_posts() -> None:
+    """An outage must surface as an error: an empty list reads as "nobody talks about this" and the
+    founder gets told their idea has no evidence (the collector turns the error into a retry)."""
     overload = httpx.Response(422, json={"data": None, "error": "Timeout. Maybe slow down a bit"})
     respx.get("https://arctic-shift.photon-reddit.com/api/comments/search").mock(return_value=overload)
     respx.get("https://arctic-shift.photon-reddit.com/api/posts/search").mock(return_value=overload)
-    assert await clients()[SourceName.REDDIT].search("churn", since=datetime(2026, 1, 1, tzinfo=UTC)) == []
+    with pytest.raises(SourceUnavailable, match="HTTP 422"):
+        await clients()[SourceName.REDDIT].search("churn", since=datetime(2026, 1, 1, tzinfo=UTC))
+
+
+@respx.mock
+async def test_reddit_keeps_partial_results_when_one_endpoint_answers() -> None:
+    overload = httpx.Response(422, json={"data": None, "error": "Timeout. Maybe slow down a bit"})
+    respx.get("https://arctic-shift.photon-reddit.com/api/comments/search").mock(return_value=overload)
+    respx.get("https://arctic-shift.photon-reddit.com/api/posts/search").respond(
+        200, json=jfixture("arctic_posts.json")
+    )
+    posts = await clients()[SourceName.REDDIT].search("churn", since=datetime(2026, 1, 1, tzinfo=UTC))
+    assert posts and {p.kind for p in posts} == {"post"}
+
+
+@respx.mock
+async def test_hn_and_searxng_outages_raise_instead_of_returning_nothing() -> None:
+    respx.get("https://hn.algolia.com/api/v1/search").respond(503)
+    respx.get("http://searxng:8080/search").respond(429)
+    c = clients()
+    with pytest.raises(SourceUnavailable, match="HTTP 503"):
+        await c[SourceName.HN].search("churn")
+    with pytest.raises(SourceUnavailable, match="HTTP 429"):
+        await c[SourceName.X].search("churn")
 
 
 BLOCKED_SEARXNG = {
