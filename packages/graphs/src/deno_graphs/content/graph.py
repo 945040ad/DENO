@@ -392,6 +392,31 @@ def _findings_text(report: Any, judge: JudgeVerdict | None = None) -> str:
     return "\n".join(lines[:25])
 
 
+def _gate_layers(report: Any, judge: JudgeVerdict | None) -> list[dict[str, Any]]:
+    """Stored gate layers for one version of a draft: the deterministic layers plus the L5 judge."""
+    layers = cast(list[dict[str, Any]], report.to_dict()["layers"])
+    if judge is not None:
+        layers.append(
+            {
+                "layer": "L5_judge",
+                "passed": judge.passed,
+                # Tells listed alongside a PASS are advice, not blockers.
+                "score": None,
+                "findings": [
+                    {
+                        "rule_id": f"L5.tell{i.tell}",
+                        "message": "Reads as AI",
+                        "quote": i.quote,
+                        "fix": i.fix,
+                        "severity": "block" if not judge.passed else "warn",
+                    }
+                    for i in judge.issues
+                ],
+            }
+        )
+    return layers
+
+
 async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
     d = deps_of(config)
     brief_id = uuid.UUID(payload["brief_id"])
@@ -492,25 +517,29 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
     rewrites = 0
     rewrite_prompt = get_prompt("content.rewrite")
     judge_prompt = get_prompt("content.judge")
+
+    async def judge_text(candidate: str) -> JudgeVerdict:
+        try:
+            raw = await d.stack.router.chat(Role.JUDGE, temperature=0).ainvoke(
+                judge_prompt.messages(
+                    platform=platform,
+                    community_line=community_line,
+                    story=story_text or "none (so any specific personal story or number is invented)",
+                    text=candidate,
+                ),
+                config=judge_prompt.config(),
+            )
+            return parse_judge(str(raw.content))
+        except Exception as exc:  # no editor check available: the draft stays unapproved
+            log.warning("content_judge_failed", error=type(exc).__name__)
+            return JudgeVerdict(
+                passed=False,
+                issues=[JudgeCheck(tell=22, quote="", fix="Editor check unavailable; review it yourself.")],
+            )
+
     while True:
         if report.passed and judge is None:
-            try:
-                raw = await d.stack.router.chat(Role.JUDGE, temperature=0).ainvoke(
-                    judge_prompt.messages(
-                        platform=platform,
-                        community_line=community_line,
-                        story=story_text or "none (so any specific personal story or number is invented)",
-                        text=text,
-                    ),
-                    config=judge_prompt.config(),
-                )
-                judge = parse_judge(str(raw.content))
-            except Exception as exc:  # no editor check available: the draft stays unapproved
-                log.warning("content_judge_failed", error=type(exc).__name__)
-                judge = JudgeVerdict(
-                    passed=False,
-                    issues=[JudgeCheck(tell=22, quote="", fix="Editor check unavailable; review it yourself.")],
-                )
+            judge = await judge_text(text)
         done = report.passed and (judge is None or judge.passed)
         if done or rewrites >= MAX_REWRITES:
             break
@@ -526,39 +555,19 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
         text = autofix(str(fixed.content))
         report = run_gates(text, ctx, profile=profile)
         judge = None
-    layers = cast(list[dict[str, Any]], report.to_dict()["layers"])
-    if judge is not None:
-        layers.append(
-            {
-                "layer": "L5_judge",
-                "passed": judge.passed,
-                # Tells listed alongside a PASS are advice, not blockers.
-                "score": None,
-                "findings": [
-                    {
-                        "rule_id": f"L5.tell{i.tell}",
-                        "message": "Reads as AI",
-                        "quote": i.quote,
-                        "fix": i.fix,
-                        "severity": "block" if not judge.passed else "warn",
-                    }
-                    for i in judge.issues
-                ],
-            }
-        )
+    layers = _gate_layers(report, judge)
     gate_passed = report.passed and (judge is None or judge.passed)
 
     # ── Quality verification safeguard ─────────────────────────────────────────
     # After the gate/judge pipeline finishes, evaluate the draft on 10 dimensions
     # (1-10).  If it scores below the threshold, regenerate with specific flaw
-    # feedback.  Up to MAX_REGEN_ATTEMPTS tries; always keep the best version.
+    # feedback.  Up to MAX_REGEN_ATTEMPTS tries; the best-scoring version is kept,
+    # and its text, gate layers and quality verdict are always stored together.
+    # A regenerated draft must pass the deterministic gates *and* the L5 judge
+    # again before it can replace the current one: the judge is what catches
+    # invented anecdotes, and a rewrite aimed at "more engaging" invites them.
     quality_verdict: QualityVerdict | None = None
     quality_regens = 0
-    best_text = text
-    best_score = 0.0
-    best_report = report
-    best_layers = layers
-    best_gate_passed = gate_passed
     product_desc = getattr(project, "idea", "")[:400] if project else ""
     # Compute adaptive threshold from history + user preference (#4)
     effective_threshold = compute_adaptive_threshold(
@@ -569,6 +578,7 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
     if gate_passed:
         quality_scorer_prompt = get_prompt("content.quality_scorer")
         quality_rewrite_prompt = get_prompt("content.quality_rewrite")
+        best: tuple[QualityVerdict, str, list[dict[str, Any]]] | None = None
 
         for attempt in range(MAX_REGEN_ATTEMPTS + 1):  # attempt 0 = initial draft, 1-3 = regens
             # Step 1: get the three subjective LLM scores
@@ -590,7 +600,7 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
 
             # Step 2: compute the full 10-dimension quality verdict, using the user's custom
             # weights (if any) and the adaptive/user threshold computed above.
-            quality_verdict = score_quality(
+            verdict = score_quality(
                 text,
                 report,
                 ctx,
@@ -599,33 +609,27 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
                 threshold=effective_threshold,
                 custom_weights=user_quality_weights,
             )
-
-            # Track the best version so far
-            if quality_verdict.overall_score > best_score:
-                best_score = quality_verdict.overall_score
-                best_text = text
-                best_report = report
-                best_layers = layers
-                best_gate_passed = gate_passed
+            if best is None or verdict.overall_score > best[0].overall_score:
+                best = (verdict, text, layers)
 
             log.info(
                 "quality_check",
                 brief_id=str(brief_id),
                 attempt=attempt,
-                score=quality_verdict.overall_score,
-                passed=quality_verdict.passed,
+                score=verdict.overall_score,
+                passed=verdict.passed,
                 threshold=effective_threshold,
             )
             await d.ctx.emit(
                 "quality_check",
                 brief_id=str(brief_id),
                 attempt=attempt,
-                score=quality_verdict.overall_score,
-                passed=quality_verdict.passed,
+                score=verdict.overall_score,
+                passed=verdict.passed,
             )
 
             # Step 3: if quality passes or we've exhausted regen attempts, stop
-            if quality_verdict.passed or attempt >= MAX_REGEN_ATTEMPTS:
+            if verdict.passed or attempt >= MAX_REGEN_ATTEMPTS:
                 break
 
             # Step 4: regenerate with the flaw report
@@ -634,14 +638,14 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
                 "quality_regen",
                 brief_id=str(brief_id),
                 attempt=quality_regens,
-                previous_score=quality_verdict.overall_score,
-                flaws=quality_verdict.flaw_summary[:500],
+                previous_score=verdict.overall_score,
+                flaws=verdict.flaw_summary[:500],
             )
             await d.ctx.emit(
                 "quality_regen",
                 brief_id=str(brief_id),
                 attempt=quality_regens,
-                previous_score=quality_verdict.overall_score,
+                previous_score=verdict.overall_score,
             )
 
             try:
@@ -651,39 +655,27 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
                         community_line=community_line,
                         story=story_text or "none",
                         text=text,
-                        previous_score=f"{quality_verdict.overall_score:.1f}",
-                        flaw_summary=quality_verdict.flaw_summary,
+                        previous_score=f"{verdict.overall_score:.1f}",
+                        flaw_summary=verdict.flaw_summary,
                     ),
                     config=quality_rewrite_prompt.config(brief_id=str(brief_id), regen=quality_regens),
                 )
-                text = autofix(str(regen_raw.content))
             except Exception as exc:
                 log.warning("quality_regen_failed", error=type(exc).__name__, attempt=quality_regens)
                 break
 
-            # Re-run the full gate pipeline on the regenerated text
-            report = run_gates(text, ctx, profile=profile)
-            if not report.passed:
-                # Regeneration broke a hard gate — revert to best so far
+            # The regenerated text has to clear everything the original did.
+            candidate = autofix(str(regen_raw.content))
+            candidate_report = run_gates(candidate, ctx, profile=profile)
+            candidate_judge = await judge_text(candidate) if candidate_report.passed else None
+            if not candidate_report.passed or candidate_judge is None or not candidate_judge.passed:
                 log.warning("quality_regen_broke_gate", brief_id=str(brief_id), attempt=quality_regens)
-                text = best_text
-                report = best_report
-                layers = best_layers
-                gate_passed = best_gate_passed
                 break
-            layers = cast(list[dict[str, Any]], report.to_dict()["layers"])
-            gate_passed = True
+            text, report, layers = candidate, candidate_report, _gate_layers(candidate_report, candidate_judge)
 
-        # Always use the best version if we exhausted attempts without passing
-        if quality_verdict and not quality_verdict.passed and best_score > quality_verdict.overall_score:
-            text = best_text
-            report = best_report
-            layers = best_layers
-            gate_passed = best_gate_passed
-
-    # Add quality verdict to the stored gate layers.
-    if quality_verdict is not None:
-        layers.append(quality_verdict.to_gate_layer())
+        if best is not None:
+            quality_verdict, text, layers = best
+            layers = [*layers, quality_verdict.to_gate_layer()]
 
     passed = gate_passed
     GATE_RESULTS.labels("passed" if passed else "failed").inc()

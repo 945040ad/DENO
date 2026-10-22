@@ -45,3 +45,11 @@ def test_invalid_weights_are_rejected(weights: dict[str, object], error: str) ->
 def test_threshold_outside_the_clamp_is_rejected(threshold: object) -> None:
     with pytest.raises(ValidationError):
         MeUpdate(quality_threshold=threshold)  # type: ignore[arg-type]
+
+
+def test_all_zero_weights_are_rejected() -> None:
+    zero = dict.fromkeys(DIMENSION_WEIGHTS, 0.0)
+    with pytest.raises(ValidationError, match="above 0"):
+        MeUpdate.model_validate({"quality_weights": zero})
+    # Zeroing some dimensions is fine.
+    MeUpdate.model_validate({"quality_weights": {"hook_strength": 0.0}})

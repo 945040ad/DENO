@@ -391,7 +391,8 @@ def _merge_weights(custom: dict[str, float] | None) -> dict[str, float]:
     for key, value in custom.items():
         if key in merged and isinstance(value, (int, float)) and 0.0 <= value <= 3.0:
             merged[key] = float(value)
-    return merged
+    # All-zero weights would make every draft score the floor and burn every regeneration.
+    return merged if any(merged.values()) else DIMENSION_WEIGHTS
 
 
 # ---------------------------------------------------------------------------
@@ -466,7 +467,8 @@ def score_quality(
     # Weighted average ----------------------------------------------------------
     total_weight = sum(d.weight for d in dims)
     overall = sum(d.score * d.weight for d in dims) / max(0.01, total_weight)
-    overall = max(1.0, min(10.0, overall))
+    # Round once, before comparing: the score shown as 7.0 must not fail a threshold of 7.
+    overall = round(max(1.0, min(10.0, overall)), 1)
     passed = overall >= threshold
 
     # Flaw summary for the rewrite prompt ---------------------------------------
@@ -483,7 +485,7 @@ def score_quality(
 
     return QualityVerdict(
         dimensions=tuple(dims),
-        overall_score=round(overall, 1),
+        overall_score=overall,
         passed=passed,
         threshold=threshold,
         flaw_summary=flaw_summary,

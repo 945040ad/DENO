@@ -290,6 +290,13 @@ class MeUpdate(BaseModel):
     )
     quality_threshold: int | None = Field(default=None, ge=5, le=9, description="Custom quality threshold (5-9)")
 
+    @model_validator(mode="after")
+    def _some_dimension_counts(self) -> MeUpdate:
+        weights = self.quality_weights
+        if weights and len(weights) == 10 and not any(weights.values()):
+            raise ValueError("At least one quality dimension needs a weight above 0.")
+        return self
+
 
 # ---- takedowns --------------------------------------------------------------------
 

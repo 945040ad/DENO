@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from deno_gates.gate import CommunityRules, GateContext, GateResult
 from deno_gates.pipeline import GateReport
 from deno_gates.quality import (
     DEFAULT_THRESHOLD,
+    DIMENSION_WEIGHTS,
     MAX_REGEN_ATTEMPTS,
     score_quality,
 )
@@ -231,6 +234,19 @@ class TestCustomWeightsAndThreshold:
             custom_weights={"not_a_real_dimension": 5.0, "specificity": 99.0},
         )
         assert same.overall_score == default.overall_score
+
+    def test_all_zero_weights_fall_back_to_defaults(self, linkedin_ctx: GateContext) -> None:
+        default = score_quality(GOOD_POST, CLEAN_REPORT, linkedin_ctx)
+        zeroed = score_quality(
+            GOOD_POST, CLEAN_REPORT, linkedin_ctx, custom_weights=dict.fromkeys(DIMENSION_WEIGHTS, 0.0)
+        )
+        assert zeroed.overall_score == default.overall_score
+
+    def test_pass_is_decided_on_the_score_that_is_shown(self, linkedin_ctx: GateContext) -> None:
+        """A draft shown as 7.0 must not fail a bar of 7 because the unrounded score was 6.96."""
+        verdict = score_quality(GOOD_POST, CLEAN_REPORT, linkedin_ctx)
+        at_bar = score_quality(GOOD_POST, CLEAN_REPORT, linkedin_ctx, threshold=math.ceil(verdict.overall_score))
+        assert at_bar.passed == (at_bar.overall_score >= at_bar.threshold)
 
     def test_threshold_from_adaptive_history(self) -> None:
         from deno_gates.quality import compute_adaptive_threshold
