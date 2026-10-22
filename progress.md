@@ -210,15 +210,44 @@ The v1 prototype (8-agent DAG, anti-slop engines, static UI + Deno gateway) is d
 
 ## How to run (current)
 
+First-time setup (Python 3.12 is pinned in `.python-version`, matching the production image):
+
 ```bash
-# Database = hosted Supabase (DATABASE_URL in .env, session pooler :5432). Local Docker only runs
-# Valkey + SearXNG, plus postgres-test for the integration tests (they drop every table).
+uv sync --all-packages                 # .venv; see the iCloud note below if the repo is in ~/Desktop or ~/Documents
+cp .env.example .env                   # then set DATABASE_URL (below) and NVIDIA_NIM_API_KEY
+cd web && npm install && npx playwright install chromium && cd ..   # playwright: npm run test:visual
+uvx pre-commit install                 # ruff, mypy, web lint + types, gitleaks on every commit
+```
+
+Database: the hosted Supabase project (session pooler :5432), or a local one with no secrets needed:
+
+```bash
+docker compose -f compose.dev.yml --profile test up -d postgres-test
+docker exec deno-dev-postgres-test-1 psql -U postgres -c "CREATE DATABASE deno_dev"
+docker exec deno-dev-postgres-test-1 psql -U postgres -d deno_dev -c "CREATE EXTENSION vector"
+# .env: DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:54329/deno_dev
+```
+
+`postgres-test` runs on tmpfs: `deno_dev` is wiped whenever that container restarts (re-run the three lines
+above and `alembic upgrade head`). The test suite only resets `deno_test`.
+
+**iCloud:** if the checkout sits in an iCloud-synced folder (Desktop/Documents sync on), iCloud evicts files
+it considers unused — seen here: 49 source files, `alembic.ini`, LLM prompts and 19 files inside `.git`.
+Docker can't read evicted files (SearXNG died with `Errno 35 Resource deadlock avoided` on its config) and
+iCloud re-hid `.pth` files in `.venv`, breaking every import. Best fix: keep the repo outside iCloud. Short of
+that: `mv .venv .venv.nosync && ln -s .venv.nosync .venv` (iCloud skips `*.nosync`; uv works through the
+symlink), and `brctl download <path>` for anything evicted. Don't do the same to `web/node_modules`: tools
+exclude it by name, so a `node_modules.nosync` gets linted and type-checked, and Turbopack panics.
+
+```bash
 docker compose -f compose.dev.yml up -d valkey searxng
 uv run alembic upgrade head                              # once, and after each new migration
 # API (:8000), worker (runs the graphs), web (:3000)
 uv run uvicorn deno_api.main:app --host 127.0.0.1 --port 8000
 uv run taskiq worker deno_worker.tasks:broker --workers 1
 cd web && npm run dev      # web/.env.local: Supabase URL + publishable key (empty = dev auth)
+# Open http://localhost:3000 - not 127.0.0.1: Next blocks dev resources from other hosts, so hot reload
+# silently fails there.
 # Tests
 docker compose -f compose.dev.yml --profile test up -d postgres-test   # integration tests only
 uv run pytest              # unit + integration (resets local deno_test; refuses Supabase); live: uv run pytest -m live

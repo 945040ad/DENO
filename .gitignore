@@ -1,5 +1,7 @@
 .env
-.venv/
+# No trailing slash: .venv may be a symlink to a *.nosync dir kept out of iCloud sync.
+.venv
+*.nosync
 __pycache__/
 *.pyc
 *.pyo
@@ -7,5 +9,5 @@ __pycache__/
 .pytest_cache/
 *.db
 *.sqlite3
-node_modules/
+node_modules
 .DS_Store
