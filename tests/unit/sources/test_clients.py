@@ -273,3 +273,41 @@ async def test_reddit_client_keeps_posts_with_query_words_close_together() -> No
     respx.get("https://arctic-shift.photon-reddit.com/api/posts/search").respond(200, json={"data": []})
     posts = await clients()[SourceName.REDDIT].search("ball speed tracking")
     assert sorted(p.text for p in posts) == sorted(items[i]["body"] for i in (0, 1))
+
+
+@respx.mock
+async def test_reddit_rides_out_arctic_shift_overload_with_jittered_backoff() -> None:
+    """Arctic Shift answers 422 "Timeout. Maybe slow down a bit" for roughly half of all requests
+    (measured 2026-10-22), so recovering from it is the normal path, not an edge case. The delays
+    are jittered because collection runs several searches at once and must not retry in lockstep."""
+    overload = httpx.Response(422, json={"data": None, "error": "Timeout. Maybe slow down a bit"})
+    respx.get("https://arctic-shift.photon-reddit.com/api/comments/search").mock(
+        side_effect=[overload, overload, httpx.Response(200, json=jfixture("arctic_comments.json"))]
+    )
+    respx.get("https://arctic-shift.photon-reddit.com/api/posts/search").respond(
+        200, json=jfixture("arctic_posts.json")
+    )
+    waits: list[float] = []
+
+    async def record(seconds: float) -> None:
+        waits.append(seconds)
+
+    config = SourceConfig(searxng_url="http://searxng:8080", subreddits=["SaaS"])
+    fetcher = build_fetcher(config, resolver=public, transport=httpx.AsyncHTTPTransport(), sleep=record)
+    posts = await build_clients(config, fetcher)[SourceName.REDDIT].search(
+        "churn", since=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+
+    assert {p.kind for p in posts} == {"comment", "post"}, "the overloaded comments call must recover, not be lost"
+    assert len(waits) == 2, f"expected two backoffs before success, got {waits}"
+    assert 2.0 <= waits[0] < 3.0, waits  # base delay plus jitter, never shorter than the base
+    assert 5.0 <= waits[1] < 7.5, waits
+
+
+@respx.mock
+async def test_reddit_gives_up_after_two_retries_without_raising() -> None:
+    """A source that stays overloaded degrades to no posts; it never aborts the run."""
+    overload = httpx.Response(422, json={"data": None, "error": "Timeout. Maybe slow down a bit"})
+    respx.get("https://arctic-shift.photon-reddit.com/api/comments/search").mock(return_value=overload)
+    respx.get("https://arctic-shift.photon-reddit.com/api/posts/search").mock(return_value=overload)
+    assert await clients()[SourceName.REDDIT].search("churn", since=datetime(2026, 1, 1, tzinfo=UTC)) == []

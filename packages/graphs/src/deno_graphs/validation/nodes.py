@@ -14,7 +14,7 @@ import re
 import time
 import uuid
 from collections import Counter
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -68,6 +68,10 @@ PER_SOURCE_LIMIT = {  # results per query
 }
 MAX_POSTS_PER_SOURCE = 80
 SOURCE_TIMEOUT_S = 90.0
+COLLECT_CONCURRENCY = 5  # in-flight searches per source; the per-host token bucket is the real throttle
+PER_CALL_TIMEOUT_S = 40.0  # one search, including its retries (Arctic Shift backs off twice)
+# Most actionable first: several jobs can now fail at once, and the source reports one error.
+ERROR_PRIORITY = ("blocked_by_policy", "timeout", "slow source", "unavailable", "error")
 ANALYST_FOCUS = {
     Analyst.PAIN: "is the problem real, frequent and painful for the people who have it?",
     Analyst.DEMAND: "are people actively looking for, asking for, or hacking together a solution?",
@@ -290,6 +294,68 @@ def fan_out_collect(state: ValidationState) -> list[Send]:
 # ---- evidence ------------------------------------------------------------------------
 
 
+def worst_error(errors: list[str]) -> str | None:
+    """The one error a source reports when several of its concurrent jobs failed differently."""
+    for prefix in ERROR_PRIORITY:
+        for err in errors:
+            if err.startswith(prefix):
+                return err
+    return errors[0] if errors else None
+
+
+async def run_searches(
+    jobs: Sequence[tuple[str, Any, str]],
+    *,
+    since: datetime,
+    limit: int,
+    deadline: float,
+    source_label: str,
+    concurrency: int = COLLECT_CONCURRENCY,
+) -> tuple[list[tuple[str, str, list[Post] | None]], list[str]]:
+    """Run every (query, client, sub) search concurrently, returning results in job order.
+
+    Pacing is already handled downstream by the per-host token bucket and circuit breaker in
+    ``deno_sources.net``, so running these serially only added latency: Reddit issues
+    queries x subreddits x 2 endpoint calls against a host that regularly takes ~9 s to answer
+    and 422s about half the time, which could not fit in the budget at all.
+
+    A job returns ``None`` for its posts when it failed, so "ran and found nothing" stays
+    distinguishable from "never ran". ``deadline`` is an absolute ``time.monotonic()`` value.
+    """
+    slots = asyncio.Semaphore(concurrency)
+    blocked = asyncio.Event()  # policy applies to the whole host, so one AccessDenied stops the rest
+    errors: list[str] = []
+
+    async def run_job(query: str, client: Any, sub: str) -> tuple[str, str, list[Post] | None]:
+        async with slots:
+            if blocked.is_set():
+                return query, sub, None
+            remaining = deadline - time.monotonic()
+            if remaining <= 5:
+                errors.append("timeout")
+                return query, sub, None
+            try:
+                found = await asyncio.wait_for(
+                    client.search(query, since=since, limit=limit), timeout=min(remaining, PER_CALL_TIMEOUT_S)
+                )
+            except AccessDenied:
+                blocked.set()
+                errors.append("blocked_by_policy")
+            except SourceUnavailable as exc:
+                errors.append(f"unavailable: {str(exc)[:80]}")
+            except TimeoutError:
+                errors.append("slow source (some queries timed out)")
+            except Exception as exc:  # a broken source never aborts the run
+                log.warning("collect_failed", source=source_label, error=type(exc).__name__)
+                errors.append(f"error: {type(exc).__name__}")
+            else:
+                return query, sub, list(found)
+            return query, sub, None
+
+    # gather keeps job order, so which posts survive MAX_POSTS_PER_SOURCE stays deterministic.
+    return list(await asyncio.gather(*(run_job(*job) for job in jobs))), errors
+
+
 @node("collect")
 async def collect(payload: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
     d = deps_of(config)
@@ -301,9 +367,6 @@ async def collect(payload: dict[str, Any], config: RunnableConfig) -> dict[str, 
         searxng_headers=searxng_auth_headers(d.settings),
     )
     since = datetime.now(UTC) - timedelta(days=EVIDENCE_WINDOW_DAYS)
-    posts: list[Post] = []
-    hits: list[tuple[Source, str, int]] = []
-    error: str | None = None
     started = time.monotonic()
     budget = SOURCE_TIMEOUT_S * (2 if source == SourceName.REDDIT else 1)
     # Reddit discovery is per subreddit: one client per community so each call has its own timeout.
@@ -314,33 +377,19 @@ async def collect(payload: dict[str, Any], config: RunnableConfig) -> dict[str, 
         ]
     else:
         targets = [(build_clients(cfg, d.fetcher)[source], "")]
-    for query in payload["queries"]:
-        for client, sub in targets:
-            remaining = budget - (time.monotonic() - started)
-            if remaining <= 5:
-                error = error or "timeout"
-                break
-            try:
-                found = await asyncio.wait_for(
-                    client.search(query, since=since, limit=PER_SOURCE_LIMIT[source]), timeout=min(remaining, 30)
-                )
-            except AccessDenied:
-                error = "blocked_by_policy"
-                break
-            except SourceUnavailable as exc:
-                error = f"unavailable: {str(exc)[:80]}"
-                continue
-            except TimeoutError:
-                error = "slow source (some queries timed out)"
-                continue
-            except Exception as exc:  # a broken source never aborts the run
-                log.warning("collect_failed", source=source.value, error=type(exc).__name__)
-                error = f"error: {type(exc).__name__}"
-                continue
-            hits.append((Source(source.value), f"{query} (r/{sub})" if sub else query, len(found)))
-            posts.extend(found)
-        if error == "blocked_by_policy":
-            break
+
+    jobs = [(query, client, sub) for query in payload["queries"] for client, sub in targets]
+    outcomes, errors = await run_searches(
+        jobs, since=since, limit=PER_SOURCE_LIMIT[source], deadline=started + budget, source_label=source.value
+    )
+    posts: list[Post] = []
+    hits: list[tuple[Source, str, int]] = []
+    for query, sub, found in outcomes:
+        if found is None:
+            continue
+        hits.append((Source(source.value), f"{query} (r/{sub})" if sub else query, len(found)))
+        posts.extend(found)
+    error = worst_error(errors)
     unique = list({p.canonical_url: p for p in posts}.values())[:MAX_POSTS_PER_SOURCE]
     async with d.session() as scope:
         await scope.add_queries(d.run_id, hits)

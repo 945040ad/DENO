@@ -7,7 +7,7 @@ unless an operator opts the host in.
 
 from __future__ import annotations
 
-import asyncio
+import random
 import re
 from datetime import UTC, datetime
 
@@ -134,12 +134,19 @@ class RedditClient(SourceClient):
         return matched[: limit * max(1, len(self.subreddits))]
 
     async def _get(self, url: str, params: dict[str, str | int]) -> FetchResult:
-        """Arctic Shift reports overload as 422 "Timeout. Maybe slow down a bit": back off and retry twice."""
+        """Arctic Shift reports overload as 422 "Timeout. Maybe slow down a bit": back off and retry twice.
+
+        The delays are jittered because collection now runs several searches at once: without it a
+        burst of 422s would retry in lockstep and hit the same overloaded host together. Measured
+        2026-10-22, ~40-50% of requests answer 422 and successful ones take 0.26-10.4 s, so the
+        retry count stays at two - a third would push one search past ``PER_CALL_TIMEOUT_S``.
+        """
         res = await self.fetcher.get(url, source=self.name, params=params, cache_ttl_s=6 * 3600)
         for delay in (2.0, 5.0):
             if res.status != 422 or "slow down" not in res.text.lower():
                 break
-            await asyncio.sleep(delay)
+            # The fetcher's injected sleep, so tests drive the retry without really waiting.
+            await self.fetcher.sleep(delay + random.uniform(0, delay / 2))  # noqa: S311 — jitter, not crypto
             res = await self.fetcher.get(url, source=self.name, params=params, cache_ttl_s=6 * 3600)
         return res
 

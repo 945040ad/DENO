@@ -300,6 +300,11 @@ class Fetcher:
 
     # ---- fetching ------------------------------------------------------------------
 
+    @property
+    def sleep(self) -> Callable[[float], Awaitable[None]]:
+        """The injected sleep, so a client can back off on its own retryable errors in tests."""
+        return self._sleep
+
     async def get(
         self,
         url: str,
