@@ -334,7 +334,11 @@ async def create_plan(
     await scope.get_project(project_id)
     await _check_plan_quota(scope)
     run_id = body.run_id
-    if run_id is None:
+    if run_id is not None:
+        run = await scope.get_run(run_id)
+        if run.project_id != project_id or run.status not in (RunStatus.SUCCEEDED, RunStatus.AWAITING_REVIEW):
+            raise InvalidInput("Build the plan on a finished validation run of this idea.")
+    else:
         latest = await scope.latest_run_for_project(project_id)
         run_id = latest.id if latest and latest.status in (RunStatus.SUCCEEDED, RunStatus.AWAITING_REVIEW) else None
     plan = await scope.create_content_plan(project_id, run_id, body.days)
@@ -445,7 +449,7 @@ async def _gate_context(scope: UserScope, brief: m.ContentBrief) -> tuple[GateCo
     allowed: set[str] = set()
     allowed_words: set[str] = set()
     if brief.story_entry_id:
-        story = await scope.get_story(brief.story_entry_id)
+        story = await scope.get_story(brief.story_entry_id, include_deleted=True)
         story_text = f"{story.headline} {story.details} {' '.join(map(str, story.numbers))}"
         allowed, allowed_words = numbers_in(story_text), number_words_in(story_text)
     rule = (

@@ -859,8 +859,9 @@ async def finalize(state: ValidationState, config: RunnableConfig) -> dict[str, 
     d = deps_of(config)
     async with d.session() as scope:
         run = await scope.get_run(d.run_id)
-        project = await scope.get_project(run.project_id)
-        if project.status != ProjectStatus.ARCHIVED:
+        # Deleted mid-run: the run still finishes (its report stays reachable from the run), the project stays deleted.
+        project = await scope.get_project(run.project_id, include_deleted=True)
+        if project.deleted_at is None and project.status != ProjectStatus.ARCHIVED:
             project.status = ProjectStatus.VALIDATED
         flagged = await scope.session.scalar(
             select(m.Claim.id).where(m.Claim.run_id == d.run_id, m.Claim.flagged_wrong.is_(True)).limit(1)

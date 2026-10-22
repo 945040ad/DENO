@@ -117,9 +117,9 @@ class UserScope:
         await self.session.flush()
         return project
 
-    async def get_project(self, project_id: uuid.UUID) -> m.Project:
+    async def get_project(self, project_id: uuid.UUID, *, include_deleted: bool = False) -> m.Project:
         project = await self._get(m.Project, project_id)
-        if project.deleted_at is not None:
+        if project.deleted_at is not None and not include_deleted:
             raise NotFound()
         return project
 
@@ -587,9 +587,11 @@ class UserScope:
         )
         return list((await self.session.execute(stmt)).scalars())
 
-    async def get_story(self, story_id: uuid.UUID) -> m.StoryBankEntry:
+    async def get_story(self, story_id: uuid.UUID, *, include_deleted: bool = False) -> m.StoryBankEntry:
+        """``include_deleted`` for drafts already built on a story: deleting it from the bank must not
+        make them uneditable, and their numbers stay sourced by it."""
         entry = await self._get(m.StoryBankEntry, story_id)
-        if entry.deleted_at is not None:
+        if entry.deleted_at is not None and not include_deleted:
             raise NotFound()
         return entry
 

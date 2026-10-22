@@ -287,7 +287,8 @@ async def brief_planner(state: ContentState, config: RunnableConfig) -> dict[str
         async with await d.scope() as scope:
             hooks = await get_hook_patterns(scope.session, [c.id for c, _ in communities])
     slots = schedule(state["days"], communities)
-    pain = [c for c in claims if c.analyst in ("pain", "demand", "icp") and not c.dropped][:12]
+    # Claims the founder flagged as wrong at review are kept for evals, never written into posts.
+    pain = [c for c in claims if c.analyst in ("pain", "demand", "icp") and not c.dropped and not c.flagged_wrong][:12]
     popular_hooks = (
         "; ".join(f"{h.formula_id} in {h.topic} ({h.relative_engagement}x median)" for h in hooks[:6])
         or "none measured yet"
@@ -366,12 +367,16 @@ async def draft(payload: dict[str, Any], config: RunnableConfig) -> dict[str, An
     await d.ctx.emit("node_started", node="draft", brief_id=str(brief_id))
     async with await d.scope() as scope:
         brief = await scope.get_brief(brief_id)
-        story = await scope.get_story(brief.story_entry_id) if brief.story_entry_id else None
+        story = await scope.get_story(brief.story_entry_id, include_deleted=True) if brief.story_entry_id else None
         samples = await scope.list_voice_samples()
         profile_row = await scope.latest_voice_profile()
         claims: list[m.Claim] = []
         if payload.get("run_id"):
-            claims = [c for c in await scope.list_claims(uuid.UUID(str(payload["run_id"]))) if c.analyst == "pain"][:6]
+            claims = [
+                c
+                for c in await scope.list_claims(uuid.UUID(str(payload["run_id"])))
+                if c.analyst == "pain" and not c.flagged_wrong
+            ][:6]
         rule_row = (
             (await community_rules(scope.session, [brief.community_id])).get(brief.community_id)
             if brief.community_id

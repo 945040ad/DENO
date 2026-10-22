@@ -18,7 +18,8 @@ from deno_api.v1 import projects as projects_module
 from deno_api.v1 import runs as runs_module
 from deno_core.db import models as m
 from deno_core.db.base import new_id
-from deno_core.db.enums import Plan, Source, Stance, VerdictKind
+from deno_core.db.enums import DraftStatus, Plan, Platform, Source, Stance, VerdictKind
+from deno_core.db.repositories import UserScope
 from deno_core.events import RunEvents
 from deno_core.runs import RunContext, RunOutcome, execute_run
 from deno_core.settings import Settings
@@ -402,6 +403,68 @@ async def test_me_export_and_delete(client: httpx.AsyncClient) -> None:
     assert len(export["tables"]["projects"]) == 1
     assert (await client.delete("/api/v1/me", headers=headers)).status_code == 204
     assert (await client.get("/api/v1/projects", headers=headers)).json()["items"] == []
+
+
+# ---- content ------------------------------------------------------------------------
+
+
+async def test_a_plan_cannot_be_built_on_another_ideas_run(
+    client: httpx.AsyncClient, redis: Redis, maker: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from deno_api.v1 import content as content_module
+
+    async def no_enqueue(task: str, **kwargs: Any) -> str:
+        return "job"
+
+    monkeypatch.setattr(content_module, "enqueue", no_enqueue)
+    user_id, headers = user_token()
+    run_id = await _start(client, headers)
+    await execute_run(run_ctx(run_id, user_id, redis, maker), fake_graph)
+    other = await create_project(client, headers)
+
+    res = await client.post(f"/api/v1/projects/{other}/content-plans", json={"run_id": run_id}, headers=headers)
+    assert res.status_code == 422, res.text
+    assert res.json()["error"]["code"] == "invalid_input"
+
+
+async def test_a_draft_stays_editable_after_its_story_is_deleted(
+    client: httpx.AsyncClient, maker: async_sessionmaker[AsyncSession]
+) -> None:
+    user_id, headers = user_token()
+    story = await client.post(
+        "/api/v1/stories",
+        json={
+            "category": "metric",
+            "headline": "Churn fell to 3%",
+            "details": "We cut churn to 3% in a quarter.",
+            "numbers": ["3%"],
+        },
+        headers=headers,
+    )
+    assert story.status_code == 201, story.text
+    pid = await create_project(client, headers)
+    async with maker() as session, session.begin():
+        scope = UserScope(session, user_id)
+        plan = await scope.create_content_plan(uuid.UUID(pid), None, 7)
+        (brief,) = await scope.replace_briefs(
+            plan.id,
+            [
+                {
+                    "day": 1,
+                    "platform": Platform.LINKEDIN,
+                    "angle": "churn",
+                    "story_entry_id": uuid.UUID(story.json()["id"]),
+                }
+            ],
+        )
+        draft = await scope.add_draft(brief, text="We cut churn to 3%.", first_comment=None, status=DraftStatus.GATED)
+    assert (await client.delete(f"/api/v1/stories/{story.json()['id']}", headers=headers)).status_code == 204
+
+    res = await client.patch(
+        f"/api/v1/drafts/{draft.id}", json={"text": "We cut churn to 3% last quarter."}, headers=headers
+    )
+    assert res.status_code == 200, res.text
+    assert not any(f["rule_id"] == "L1.unsourced_number" for g in res.json()["gates"] for f in g["findings"])
 
 
 # ---- billing ------------------------------------------------------------------------
