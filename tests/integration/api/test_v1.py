@@ -371,6 +371,13 @@ async def test_review_interrupt_and_resume(
         return RunOutcome("awaiting_review")
 
     await execute_run(run_ctx(run_id, user_id, redis, maker), needs_review)
+    # A run paused for review holds no worker: it must not block the next validation (free plan: 1 at a time),
+    # and cancelling it is refused rather than silently turning a later resume into "cancelled".
+    second = await client.post(
+        "/api/v1/projects", json={"idea": "A second idea to validate meanwhile"}, headers=headers
+    )
+    assert (await client.post(f"/api/v1/projects/{second.json()['id']}/runs", headers=headers)).status_code == 202
+    assert (await client.post(f"/api/v1/runs/{run_id}/cancel", headers=headers)).status_code == 409
     report = (await client.get(f"/api/v1/runs/{run_id}/report", headers=headers)).json()
     claim_id = report["claims"][0]["id"]
     res = await client.post(f"/api/v1/runs/{run_id}/resume", json={"wrong_claim_ids": [claim_id]}, headers=headers)
@@ -395,6 +402,156 @@ async def test_me_export_and_delete(client: httpx.AsyncClient) -> None:
     assert len(export["tables"]["projects"]) == 1
     assert (await client.delete("/api/v1/me", headers=headers)).status_code == 204
     assert (await client.get("/api/v1/projects", headers=headers)).json()["items"] == []
+
+
+# ---- billing ------------------------------------------------------------------------
+
+WEBHOOK_SECRET = "whsec_test"
+
+
+class FakeStripe:
+    """The slice of ``stripe.StripeClient`` the API uses, with scripted subscriptions."""
+
+    def __init__(self, subscriptions: dict[str, dict[str, Any]], cancel_error: Exception | None = None) -> None:
+        self.subscriptions, self.cancel_error = subscriptions, cancel_error
+        self.cancelled: list[str] = []
+
+    async def cancel_async(self, sub_id: str) -> None:
+        if self.cancel_error:
+            raise self.cancel_error
+        self.cancelled.append(sub_id)
+
+    async def retrieve_async(self, sub_id: str) -> Any:
+        data = self.subscriptions[sub_id]
+        return type("Remote", (), {"to_dict": lambda _self: dict(data)})()
+
+
+def install_stripe(monkeypatch: pytest.MonkeyPatch, fake: FakeStripe) -> None:
+    from deno_api.v1 import billing as billing_module
+    from deno_api.v1 import me as me_module
+
+    wrapper = type("V1", (), {"v1": type("S", (), {"subscriptions": fake})()})()
+    monkeypatch.setattr(billing_module, "stripe_client", lambda settings: wrapper)
+    monkeypatch.setattr(me_module, "stripe_client", lambda settings: wrapper)
+
+
+async def _subscribe(maker: async_sessionmaker[AsyncSession], user_id: uuid.UUID, status: str = "active") -> None:
+    async with maker() as session, session.begin():
+        session.add(m.Profile(id=user_id, plan=Plan.PRO))
+        await session.flush()
+        session.add(
+            m.Subscription(
+                user_id=user_id,
+                plan=Plan.PRO,
+                status=status,
+                stripe_customer_id=f"cus_{user_id.hex[:8]}",
+                stripe_subscription_id=f"sub_{user_id.hex[:8]}",
+            )
+        )
+
+
+async def test_deleting_an_account_cancels_its_subscription(
+    client: httpx.AsyncClient, maker: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_id, headers = user_token()
+    await _subscribe(maker, user_id)
+    fake = FakeStripe({})
+    install_stripe(monkeypatch, fake)
+    assert (await client.delete("/api/v1/me", headers=headers)).status_code == 204
+    assert fake.cancelled == [f"sub_{user_id.hex[:8]}"]
+
+
+async def test_account_is_kept_when_the_subscription_cannot_be_cancelled(
+    client: httpx.AsyncClient, maker: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import stripe
+
+    user_id, headers = user_token()
+    await _subscribe(maker, user_id)
+    install_stripe(monkeypatch, FakeStripe({}, cancel_error=stripe.APIConnectionError("down")))
+    res = await client.delete("/api/v1/me", headers=headers)
+    assert res.status_code == 503
+    assert "nothing was deleted" in res.text
+    assert (await client.get("/api/v1/me", headers=headers)).json()["plan"] == "pro"
+
+
+def _signed(event: dict[str, Any]) -> tuple[bytes, dict[str, str]]:
+    import hashlib
+    import hmac
+    import time
+
+    payload = json.dumps(event).encode()
+    ts = int(time.time())
+    sig = hmac.new(WEBHOOK_SECRET.encode(), f"{ts}.".encode() + payload, hashlib.sha256).hexdigest()
+    return payload, {"Stripe-Signature": f"t={ts},v1={sig}", "Content-Type": "application/json"}
+
+
+@pytest.fixture
+async def billing_client(maker: async_sessionmaker[AsyncSession], redis: Redis) -> AsyncIterator[httpx.AsyncClient]:
+    settings = Settings(
+        environment="test", database_url="", valkey_url=VALKEY_URL, stripe_webhook_secret=WEBHOOK_SECRET
+    )
+    app = create_app(settings)
+    app.state.sessionmaker, app.state.redis = maker, redis
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c,
+    ):
+        yield c
+
+
+async def test_a_stale_subscription_event_cannot_undo_a_cancellation(
+    billing_client: httpx.AsyncClient, maker: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stripe doesn't order webhooks: an old "updated: active" can land after the cancellation."""
+    user_id = uuid.uuid4()
+    await _subscribe(maker, user_id, status="canceled")
+    sub_id = f"sub_{user_id.hex[:8]}"
+    current = {
+        "id": sub_id,
+        "customer": f"cus_{user_id.hex[:8]}",
+        "status": "canceled",
+        "metadata": {"user_id": str(user_id)},
+    }
+    install_stripe(monkeypatch, FakeStripe({sub_id: current}))
+    stale = {**current, "status": "active"}
+    payload, headers = _signed(
+        {
+            "id": f"evt_{uuid.uuid4().hex}",
+            "object": "event",
+            "type": "customer.subscription.updated",
+            "data": {"object": {"object": "subscription", **stale}},
+        }
+    )
+    assert (await billing_client.post("/api/v1/billing/webhook", content=payload, headers=headers)).status_code == 200
+    async with maker() as session:
+        profile = await session.get(m.Profile, user_id)
+        assert profile is not None and profile.plan == Plan.FREE
+
+
+async def test_a_cancellation_for_a_deleted_account_does_not_recreate_it(
+    billing_client: httpx.AsyncClient, maker: async_sessionmaker[AsyncSession]
+) -> None:
+    user_id = uuid.uuid4()
+    payload, headers = _signed(
+        {
+            "id": f"evt_{uuid.uuid4().hex}",
+            "object": "event",
+            "type": "customer.subscription.deleted",
+            "data": {
+                "object": {
+                    "object": "subscription",
+                    "id": "sub_gone",
+                    "customer": "cus_gone",
+                    "status": "canceled",
+                    "metadata": {"user_id": str(user_id)},
+                }
+            },
+        }
+    )
+    assert (await billing_client.post("/api/v1/billing/webhook", content=payload, headers=headers)).status_code == 200
+    async with maker() as session:
+        assert await session.get(m.Profile, user_id) is None
 
 
 # ---- limits -------------------------------------------------------------------------

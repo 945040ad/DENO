@@ -50,11 +50,11 @@ class RedirectOut(BaseModel):
     url: str
 
 
-def _settings(request: Request) -> Settings:
+def settings_of(request: Request) -> Settings:
     return getattr(request.app.state, "settings", None) or get_settings()
 
 
-def _client(settings: Settings) -> stripe.StripeClient:
+def stripe_client(settings: Settings) -> stripe.StripeClient:
     if not settings.billing_enabled:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Billing is not configured yet.")
     return stripe.StripeClient(settings.stripe_secret_key.get_secret_value())
@@ -77,15 +77,15 @@ async def billing(scope: Scope, request: Request) -> BillingOut:
         plan=profile.plan,
         status=sub.status if sub else "active",
         current_period_end=sub.current_period_end if sub else None,
-        billing_enabled=_settings(request).billing_enabled,
+        billing_enabled=settings_of(request).billing_enabled,
         usage=usage,
     )
 
 
 @router.post("/checkout")
 async def checkout(scope: Scope, request: Request, user: Annotated[AuthUser, Depends(current_user)]) -> RedirectOut:
-    settings = _settings(request)
-    client = _client(settings)
+    settings = settings_of(request)
+    client = stripe_client(settings)
     sub = await scope.session.get(m.Subscription, scope.user_id)
     params: dict[str, Any] = {
         "mode": "subscription",
@@ -108,8 +108,8 @@ async def checkout(scope: Scope, request: Request, user: Annotated[AuthUser, Dep
 
 @router.post("/portal")
 async def portal(scope: Scope, request: Request) -> RedirectOut:
-    settings = _settings(request)
-    client = _client(settings)
+    settings = settings_of(request)
+    client = stripe_client(settings)
     sub = await scope.session.get(m.Subscription, scope.user_id)
     if not sub or not sub.stripe_customer_id:
         raise HTTPException(status.HTTP_409_CONFLICT, "You don't have a paid subscription yet.")
@@ -135,6 +135,11 @@ async def _apply_subscription(session: AsyncSession, data: dict[str, Any], user_
         return
     sub_status = str(data.get("status") or "active")
     plan = Plan.PRO if sub_status in ACTIVE else Plan.FREE
+    if plan == Plan.FREE and await session.get(m.Profile, user_id) is None:
+        # A cancellation for an account that no longer exists (deleted, which cancels the subscription):
+        # recording it would recreate a profile for a user who asked to be erased.
+        log.info("stripe_subscription_for_deleted_user", status=sub_status)
+        return
     period_end = data.get("current_period_end") or (data.get("items", {}).get("data") or [{}])[0].get(
         "current_period_end"
     )
@@ -163,7 +168,7 @@ async def webhook(
     session: Annotated[AsyncSession, Depends(get_session)],
     stripe_signature: Annotated[str | None, Header(alias="Stripe-Signature")] = None,
 ) -> dict[str, str]:
-    settings = _settings(request)
+    settings = settings_of(request)
     secret = settings.stripe_webhook_secret.get_secret_value()
     if not secret:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Billing is not configured yet.")
@@ -184,7 +189,7 @@ async def webhook(
         ref = data.get("client_reference_id")
         user_id = uuid.UUID(ref) if ref else None
         if user_id and data.get("subscription"):
-            client = _client(settings)
+            client = stripe_client(settings)
             remote = await client.v1.subscriptions.retrieve_async(str(data["subscription"]))
             await _apply_subscription(session, remote.to_dict(), user_id)
     elif event.type in {
@@ -196,6 +201,11 @@ async def webhook(
         user_id = uuid.UUID(meta["user_id"]) if meta.get("user_id") else None
         if event.type == "customer.subscription.deleted":
             data = {**data, "status": "canceled"}
+        elif data.get("id"):
+            # Stripe doesn't deliver events in order: a stale "updated: active" arriving after the
+            # cancellation would hand a cancelled customer Pro again. Apply the subscription as it is now.
+            remote = await stripe_client(settings).v1.subscriptions.retrieve_async(str(data["id"]))
+            data = remote.to_dict()
         await _apply_subscription(session, data, user_id)
     elif event.type == "invoice.payment_failed":
         customer = str(data.get("customer") or "")
