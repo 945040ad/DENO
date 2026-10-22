@@ -191,6 +191,10 @@ async def _link_context(d: GraphDeps, idea: str) -> tuple[str, str | None]:
             log.info("repo_unavailable", repo=f"{owner}/{name}", reason=exc.reason)
             await d.ctx.emit("log", message=f"couldn't read the repo: {exc.reason}")
             problems.append(exc.reason)
+        except Exception as exc:  # the link is optional context: never fail the run over it
+            log.warning("repo_read_failed", repo=f"{owner}/{name}", error=type(exc).__name__)
+            await d.ctx.emit("log", message="couldn't read the repo")
+            problems.append("the repository couldn't be read")
         else:
             log.info("repo_read", repo=repo.slug, readme_chars=len(repo.readme))
             await d.ctx.emit("log", message=f"read {repo.slug}: {len(repo.readme)} README characters")
@@ -204,6 +208,10 @@ async def _link_context(d: GraphDeps, idea: str) -> tuple[str, str | None]:
             log.info("site_unavailable", host=host, reason=exc.reason)
             await d.ctx.emit("log", message=f"couldn't read the website: {exc.reason}")
             problems.append(exc.reason)
+        except Exception as exc:  # the link is optional context: never fail the run over it
+            log.warning("site_read_failed", host=host, error=type(exc).__name__)
+            await d.ctx.emit("log", message="couldn't read the website")
+            problems.append(f"{host} couldn't be read")
         else:
             log.info("site_read", host=site.host, text_chars=len(site.text), thin=site.thin)
             note = " · little text (the page is probably rendered by JavaScript)" if site.thin else ""

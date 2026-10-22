@@ -84,6 +84,8 @@ async def test_non_public_addresses_are_refused(addresses: list[str]) -> None:
         ("https://169.254.169.254/computeMetadata/v1/", "bare IP"),
         ("https://[::1]/", "bare IP"),
         ("https://tripnest.app:8443/", "standard port"),
+        ("https://tripnest.app:99999/", "invalid port"),
+        ("https://tripnest.app:80x/", "invalid port"),
         ("https://user:pw@tripnest.app/", "username or password"),
         ("ftp://tripnest.app/", "only http"),
         ("https://metadata.google.internal/", "isn't a public website"),

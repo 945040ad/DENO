@@ -114,7 +114,11 @@ def _normalise(url: str) -> str:
         raise SiteUnavailable("only http(s) website links can be read")
     if parts.username or parts.password:
         raise SiteUnavailable("links with a username or password can't be read")
-    if parts.port not in (None, 443):
+    try:
+        port = parts.port
+    except ValueError:  # ":99999" or ":abc" - urlsplit raises only when the port is read
+        raise SiteUnavailable("that link has an invalid port number") from None
+    if port not in (None, 443):
         raise SiteUnavailable("only websites on the standard port can be read")
     host = (parts.hostname or "").lower().rstrip(".")
     if not host:
