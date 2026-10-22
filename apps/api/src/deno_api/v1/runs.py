@@ -86,6 +86,10 @@ async def cancel_run(run_id: uuid.UUID, scope: Scope, events: Events) -> RunOut:
     run = await scope.get_run(run_id)
     if run.status in (RunStatus.SUCCEEDED, RunStatus.FAILED, RunStatus.CANCELLED):
         raise Conflict("That run has already finished.")
+    if run.status == RunStatus.AWAITING_REVIEW:
+        # Its verdict is written and it holds no worker. A cancel flag here would only make a later
+        # resume end as "cancelled" instead of finishing.
+        raise Conflict("That run has finished; it is only waiting for your optional review.")
     await events.request_cancel(str(run_id))
     if run.status == RunStatus.QUEUED:
         run.status = RunStatus.CANCELLED  # never started; the worker will skip it

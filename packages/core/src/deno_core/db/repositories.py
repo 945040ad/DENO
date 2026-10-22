@@ -38,7 +38,10 @@ from deno_core.errors import Conflict, InvalidInput, NotFound
 
 T = TypeVar("T", bound=Base)
 
-ACTIVE_RUN_STATUSES = (RunStatus.QUEUED, RunStatus.RUNNING, RunStatus.AWAITING_REVIEW)
+# Runs that hold a worker. A run awaiting review is paused with its verdict written and holds nothing,
+# so it must not count against the concurrency quota: every successful run ends there, and counting it
+# locked free users (1 concurrent run) out of a second validation until they answered the review.
+ACTIVE_RUN_STATUSES = (RunStatus.QUEUED, RunStatus.RUNNING)
 
 
 _FTS_WORD = re.compile(r"[a-z0-9]+")
