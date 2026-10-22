@@ -311,3 +311,47 @@ async def test_reddit_gives_up_after_two_retries_without_raising() -> None:
     respx.get("https://arctic-shift.photon-reddit.com/api/comments/search").mock(return_value=overload)
     respx.get("https://arctic-shift.photon-reddit.com/api/posts/search").mock(return_value=overload)
     assert await clients()[SourceName.REDDIT].search("churn", since=datetime(2026, 1, 1, tzinfo=UTC)) == []
+
+
+BLOCKED_SEARXNG = {
+    "query": "site:x.com churn",
+    "results": [],
+    "unresponsive_engines": [["brave", "too many requests"], ["duckduckgo", "CAPTCHA"]],
+}
+
+
+@respx.mock
+async def test_blocked_search_engines_are_reported_not_mistaken_for_no_posts() -> None:
+    """SearXNG answers HTTP 200 with no results when its engines are CAPTCHA'd. Treating that as
+    "nobody talks about this" made a blocked server look like a verdict about the idea."""
+    from deno_sources import SourceUnavailable
+
+    respx.get("http://searxng:8080/search").respond(200, json=BLOCKED_SEARXNG)
+    with pytest.raises(SourceUnavailable, match=r"search engines blocked: brave \(too many requests\), duckduckgo"):
+        await clients()[SourceName.X].search("churn")
+
+
+@respx.mock
+async def test_a_blocked_search_is_not_cached() -> None:
+    """Search results are cached for 24 h. Caching a blocked answer kept returning nothing for a day
+    after the block lifted - and made a retry pointless."""
+    from deno_sources import SourceUnavailable
+
+    route = respx.get("http://searxng:8080/search").respond(200, json=BLOCKED_SEARXNG)
+    x = clients()[SourceName.X]
+    for _ in range(2):
+        with pytest.raises(SourceUnavailable):
+            await x.search("churn")
+    assert route.call_count == 2, "the second search must reach SearXNG again, not the cache"
+
+
+@respx.mock
+async def test_a_genuinely_empty_search_is_still_cached_and_quiet() -> None:
+    """No results with every engine answering is a real answer: cache it, and don't raise."""
+    route = respx.get("http://searxng:8080/search").respond(
+        200, json={"query": "site:x.com churn", "results": [], "unresponsive_engines": []}
+    )
+    x = clients()[SourceName.X]
+    assert await x.search("churn") == []
+    assert await x.search("churn") == []
+    assert route.call_count == 1

@@ -314,7 +314,14 @@ class Fetcher:
         headers: Mapping[str, str] | None = None,
         cache_ttl_s: int | None = None,
         browser_ua: bool = False,
+        cacheable: Callable[[FetchResult], bool] | None = None,
     ) -> FetchResult:
+        """GET through the allow-list, robots policy, rate limit, breaker and cache.
+
+        ``cacheable`` lets a caller veto caching a 2xx that is not really an answer - SearXNG returns
+        200 with no results when its upstream engines are CAPTCHA'd, and caching that for a day would
+        keep returning nothing long after the block lifted.
+        """
         full_url = str(httpx.URL(url, params=params)) if params else url
         breaker = self.breakers.setdefault(source, CircuitBreaker())
         health = self.health.setdefault(source, SourceHealth())
@@ -349,7 +356,7 @@ class Fetcher:
         if ok:
             health.successes += 1
             health.latencies_ms.append((time.monotonic() - started) * 1000)
-            if cache_ttl_s:
+            if cache_ttl_s and (cacheable is None or cacheable(result)):
                 await self._cache.set(cache_key, result.text, cache_ttl_s)
         return result
 

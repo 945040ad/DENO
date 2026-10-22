@@ -71,7 +71,7 @@ citations keep the link) or reject. Target: resolve within 7 days.
 `DELETE /me` deletes data first, then the Supabase login. If the login removal fails, the log line
 `auth_user_delete_failed` names the user id: delete it in the Supabase dashboard.
 
-## SearXNG engines blocked (X / LinkedIn / Product Hunt discovery returns nothing)
+## SearXNG engines blocked (X / LinkedIn / Product Hunt report "search engines blocked")
 
 Discovery for X, LinkedIn posts and Product Hunt goes through SearXNG, whose upstream engines rate-limit
 a single server IP (seen in testing: Brave "too many requests", DuckDuckGo and later Google CAPTCHA after
@@ -82,7 +82,14 @@ curl -s -G http://searxng:8080/search --data-urlencode "q=site:x.com test" --dat
   | jq '.results | length, .unresponsive_engines'
 ```
 
-Runs still complete (Reddit and HN don't depend on it), but reports lose X/Product Hunt evidence.
+Runs still complete (Reddit and HN don't depend on it), but reports lose X/Product Hunt evidence. The
+affected sources now fail with `unavailable: search engines blocked: brave (too many requests), …` (in the
+run's `coverage.source_errors` and the `SOURCE_ERRORS{error="unavailable"}` metric) instead of silently
+returning nothing, and a run that falls short because of it gets one retry and then tells the founder the
+sources failed rather than that their idea lacks evidence.
+
+Blocked answers are not cached (before 2026-10-23 they were, for 24 h, so a block kept returning nothing for
+a day after it lifted - if you are on an older build, flush the `src:cache:` keys after a block clears).
 Fixes, in order of effort: wait (blocks lift within hours); spread engines in `deploy/searxng/settings.yml`;
 route SearXNG through a proxy pool (`outgoing.proxies`); or add a paid search API engine.
 

@@ -6,8 +6,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 
-from deno_sources.models import Post, SourceName
-from deno_sources.net import Fetcher
+from deno_sources.models import Post, SourceName, SourceUnavailable
+from deno_sources.net import Fetcher, FetchResult
 
 # Extra request headers, fetched per request (e.g. a short-lived ID token for a private SearXNG).
 HeaderProvider = Callable[[], Awaitable[Mapping[str, str]]]
@@ -48,9 +48,13 @@ class SearxngClient:
                 params=params,
                 headers=await self._headers() if self._headers else None,
                 cache_ttl_s=24 * 3600,
+                cacheable=lambda r: blocked_engines(r) is None,
             )
             if res.status != 200:
                 break
+            if page == 1 and (blocked := blocked_engines(res)):
+                # Indistinguishable from "nobody talks about this" unless we say so.
+                raise SourceUnavailable(f"search engines blocked: {blocked}")
             data = res.json()
             batch = data.get("results", []) if isinstance(data, dict) else []
             results.extend(
@@ -61,3 +65,23 @@ class SearxngClient:
             if not batch:
                 break
         return results
+
+
+def blocked_engines(res: FetchResult) -> str | None:
+    """Which upstream engines refused us, when SearXNG answered 200 with no results because of it.
+
+    SearXNG reports CAPTCHAs and rate limits in ``unresponsive_engines`` (``[[name, reason], ...]``)
+    while still returning HTTP 200 - so an empty result list on its own means nothing.
+    """
+    if res.status != 200:
+        return None
+    try:
+        data = res.json()
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or data.get("results"):
+        return None
+    pairs = [e for e in data.get("unresponsive_engines") or [] if isinstance(e, list | tuple) and e]
+    if not pairs:
+        return None
+    return ", ".join(f"{e[0]} ({e[1]})" if len(e) > 1 and e[1] else str(e[0]) for e in pairs)[:200]

@@ -1,6 +1,7 @@
 """The validation StateGraph (docs/08 Phase 8).
 
 intake ─► perspective_planner ─► query_planner ─► [Send] collect×source ─► ingest ─► coverage_check
+  ├─(sources failed, or a near miss; once)─► broaden ─► [Send] collect×failed/thin source ─► ingest ─► …
   ├─(too little evidence / unclear idea)─► insufficient ─► account ─► finalize
   └─► [Send] analyst×7 ─► citation_validator ─► signal_scorer ─► critic ⇄ refiner (≤2)
         ─► verdict ─► account ─► review (interrupt) ─► finalize
@@ -33,6 +34,7 @@ def build_graph(checkpointer: BaseCheckpointSaver[Any] | None = None) -> Compile
     g.add_node("refiner", n.refiner)
     g.add_node("verdict", n.verdict)
     g.add_node("insufficient", n.insufficient)
+    g.add_node("broaden", n.broaden)
     g.add_node("account", n.account)
     g.add_node("review", n.review)
     g.add_node("finalize", n.finalize)
@@ -43,7 +45,8 @@ def build_graph(checkpointer: BaseCheckpointSaver[Any] | None = None) -> Compile
     g.add_conditional_edges("query_planner", n.fan_out_collect, ["collect"])
     g.add_edge("collect", "ingest")
     g.add_edge("ingest", "coverage_check")
-    g.add_conditional_edges("coverage_check", n.route_after_coverage, ["analyst", "insufficient"])
+    g.add_conditional_edges("coverage_check", n.route_after_coverage, ["analyst", "broaden", "insufficient"])
+    g.add_conditional_edges("broaden", n.fan_out_retry, ["collect", "insufficient"])
     g.add_edge("analyst", "citation_validator")
     g.add_edge("citation_validator", "signal_scorer")
     g.add_edge("signal_scorer", "critic")

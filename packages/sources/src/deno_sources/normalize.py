@@ -94,10 +94,14 @@ _QUERY_STOP = frozenset(
 )
 
 
+def distinctive_terms(query: str) -> list[str]:
+    """The words of a query worth searching for: lowercase, no stop words, no 1-2 letter words."""
+    return list(dict.fromkeys(t for t in _WORD.findall(query.lower()) if t not in _QUERY_STOP and len(t) > 2))
+
+
 def query_stems(query: str) -> list[str]:
     """Distinctive words of a search query, cut to 5-letter stems so "tracking" matches "tracker"."""
-    terms = [t for t in _WORD.findall(query.lower()) if t not in _QUERY_STOP and len(t) > 2]
-    return list(dict.fromkeys(t[:5] for t in terms))
+    return list(dict.fromkeys(t[:5] for t in distinctive_terms(query)))
 
 
 def mentions_near(text: str, stems: list[str], window: int = 12) -> bool:

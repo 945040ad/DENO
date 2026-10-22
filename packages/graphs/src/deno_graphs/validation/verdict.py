@@ -4,11 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from deno_graphs.validation.signals import ClaimView
 
 MIN_DOCS = 12
 MIN_DIVERSE_SOURCES = 2
+# A shortfall with at least this many documents is a near miss: the evidence exists, we just didn't
+# gather enough of it, so one broader pass is worth its latency.
+NEAR_MISS_DOCS = 5
+MAX_COLLECT_ROUNDS = 2  # the planned pass plus at most one broadened retry
+# Collection errors that can clear up on a second attempt. A robots.txt/policy block cannot.
+RETRYABLE_ERRORS = ("timeout", "slow source", "unavailable", "error")
 
 
 @dataclass(frozen=True)
@@ -40,6 +47,44 @@ def coverage(by_source: Mapping[str, int], recent: int, *, min_docs: int = MIN_D
         ok=total >= min_docs and diverse >= MIN_DIVERSE_SOURCES,
         gaps=gaps,
     )
+
+
+CoverageAction = Literal["ok", "retry", "insufficient"]
+# Why coverage fell short, so the founder is told whether it is about their idea or about us.
+CoverageCause = Literal["ok", "sources_failed", "thin", "no_evidence"]
+
+
+@dataclass(frozen=True)
+class CoverageDecision:
+    action: CoverageAction
+    cause: CoverageCause
+    retry_sources: tuple[str, ...] = ()
+
+
+def decide_coverage(
+    cov: Coverage, *, planned: Sequence[str], errors: Mapping[str, str | None], rounds: int
+) -> CoverageDecision:
+    """Retry when the shortfall looks like ours, answer at once when the evidence isn't there.
+
+    - A source that failed transiently (timeout, upstream outage, blocked search engines) is
+      retried: its silence says nothing about the idea.
+    - A near miss (``NEAR_MISS_DOCS``+ documents) also broadens the thin sources: evidence exists.
+    - Every source answering cleanly with almost nothing is a real signal and stays fast.
+    - Never more than ``MAX_COLLECT_ROUNDS`` passes, so latency stays bounded.
+    """
+    if cov.ok:
+        return CoverageDecision("ok", "ok")
+    policy_blocked = {s for s, e in errors.items() if e and e.startswith("blocked_by_policy")}
+    failed = [s for s in planned if (e := errors.get(s)) and e.startswith(RETRYABLE_ERRORS)]
+    near_miss = cov.documents >= NEAR_MISS_DOCS
+    cause: CoverageCause = "sources_failed" if failed else "thin" if near_miss else "no_evidence"
+    if rounds >= MAX_COLLECT_ROUNDS:
+        return CoverageDecision("insufficient", cause)
+    thin = [s for s in planned if cov.by_source.get(s, 0) < 3 and s not in policy_blocked and s not in failed]
+    retry = failed + (thin if near_miss else [])
+    if not retry:
+        return CoverageDecision("insufficient", cause)
+    return CoverageDecision("retry", cause, tuple(retry))
 
 
 @dataclass(frozen=True)
