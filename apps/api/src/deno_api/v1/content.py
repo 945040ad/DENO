@@ -7,7 +7,7 @@ from collections.abc import AsyncIterable
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request, Response, status
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import BaseModel, Field, StrictBool
 from sqlalchemy import func, select
@@ -682,11 +682,10 @@ class QualityTrendOut(BaseModel):
 
 
 @router.get("/quality/history")
-async def quality_history(scope: Scope, limit: int = 50) -> QualityTrendOut:
+async def quality_history(scope: Scope, limit: Annotated[int, Query(ge=1, le=200)] = 50) -> QualityTrendOut:
     """Quality score history for the current user's drafts. Feeds the trend chart."""
     from deno_gates.quality import compute_adaptive_threshold
 
-    limit = min(limit, 200)
     # Query gate results for quality_verification layer, ordered by creation date
     rows = (
         await scope.session.execute(

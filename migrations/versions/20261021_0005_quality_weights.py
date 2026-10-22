@@ -1,17 +1,19 @@
 """Quality verification: per-user weights/threshold on profiles, structured verdict on gate_results.
 
-Revision ID: 20261021_0005_quality_weights
-Revises: 20261014_0004_internal_plan
+Revision ID: 0005
+Revises: 0004
 """
+
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
-revision = "20261021_0005_quality_weights"
-down_revision = "20261014_0004_internal_plan"
-branch_labels = None
-depends_on = None
+revision: str = "0005"
+down_revision: str | Sequence[str] | None = "0004"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
