@@ -33,6 +33,7 @@ _EXPERIENCE = re.compile(
     re.IGNORECASE,
 )
 _HOOK_LABEL = re.compile(r"^\s*F\d{1,2}\s*[:.)-]\s*", re.MULTILINE)
+SHORT_COPY_WORDS = 150
 _DASH = re.compile(r"—|–")  # typed hyphens (" - ", "--") are how people write; the typographic dash is the tell
 
 
@@ -91,6 +92,20 @@ def scrub(text: str, ctx: GateContext | None = None) -> GateResult:
     if len(dashes) > max(1, n_words // 150):  # at most ~1 dash per 150 words
         findings += [
             Finding("L1.em_dash", "Em-dash overuse", m.group(0), m.start(), m.end(), "Use a comma, colon or full stop.")
+            for m in dashes
+        ]
+    elif dashes and n_words < SHORT_COPY_WORDS:
+        # no-ai-slop: none in short copy. One is human enough not to block, so it's advice.
+        findings += [
+            Finding(
+                "L1.em_dash",
+                "Em dash in a short post",
+                m.group(0),
+                m.start(),
+                m.end(),
+                "Short posts read better without one: use a comma or a full stop.",
+                severity="warn",
+            )
             for m in dashes
         ]
     findings += [

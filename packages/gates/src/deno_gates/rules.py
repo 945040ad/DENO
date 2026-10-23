@@ -1,6 +1,6 @@
 """Rule tables for L1 (scrub) and L2 (hard-fail patterns).
 
-Sources: petergyang/no-ai-slop cut lists and structural patterns, sergebulaev/linkedin-skills
+Sources: petergyang/no-ai-slop (MIT; cut lists and patterns synced 2026-10-23), sergebulaev/linkedin-skills
 humanizer FORENSIC/STRICT rules, and Deno v1 ``anti_slop.py`` (all 16 patterns kept, plus the
 two it was missing: "Negative Parallelism" and "Copula Avoidance"). Every match is reported.
 """
@@ -79,11 +79,26 @@ _VOCAB = (
     r"revolutioni[sz]e|supercharge|unleash|empower(ing)? (you|teams|businesses)|holistic|"
     r"multifaceted|pivotal|intricate|meticulous(ly)?|underscore[sd]?|showcas(e|ing)|foster(ing)?|"
     r"transformative|actionable insights|dive (deep|into)|deep dive|let'?s dive in|buckle up|"
-    r"at its core|the power of|not just (a|an) |more than just"
+    r"at its core|the power of|not just (a|an) |more than just|"
+    r"utiliz(e|es|ed|ing)|facilitat(e|es|ed|ing)|streamlin(e|es|ed|ing)|beacon of|paramount|"
+    r"this changes everything|this is huge"
+)
+
+# Often-empty phrases: they delay the point, but people do say them, so they warn rather than block.
+_FILLER = (
+    r"when it comes to|in today'?s world|in the age of|in the world of|the reality is|the truth is|"
+    r"with regard to|going forward|in this (article|post)|at the end of the day"
 )
 
 PATTERN_RULES: tuple[Rule, ...] = (
     _r("L2.vocab", rf"\b({_VOCAB})\b", "AI-typical vocabulary", "Use the plain word you'd say out loud."),
+    _r(
+        "L2.filler_phrase",
+        rf"\b({_FILLER})\b",
+        "Filler phrase that delays the point",
+        "Cut it and start with the point, unless it's genuinely how you talk.",
+        severity="warn",
+    ),
     _r(
         "L2.opener.announce",
         r"^\s*(i'?m (so )?(thrilled|excited|humbled|honou?red|delighted) to (announce|share)|big news|exciting news)",
@@ -94,7 +109,7 @@ PATTERN_RULES: tuple[Rule, ...] = (
     _r(
         "L2.opener.hook",
         r"^\s*(unpopular opinion|hot take|here'?s the thing|let me be (honest|clear)|the uncomfortable truth|truth be told|"
-        r"stop scrolling|read that again|i'?ll say it)\b",
+        r"stop scrolling|read that again|i'?ll say it|i'?ll be honest|here'?s what i mean)\b",
         "Throat-clearing hook",
         "Cut the setup and lead with the claim.",
         flags=re.IGNORECASE | re.MULTILINE,
@@ -104,6 +119,12 @@ PATTERN_RULES: tuple[Rule, ...] = (
         r"\b(it'?s|this is|that'?s) not (just )?(about )?[^.\n]{2,60}[.,;:]\s*(it'?s|this is|that'?s) (about )?",
         "Binary contrast (\"It's not X. It's Y.\")",
         "State Y directly.",
+    ),
+    _r(
+        "L2.binary_contrast",
+        r"\bthe (question|problem|issue|answer|point|bottleneck) (isn'?t|is not|was never) [^.\n]{2,60}[.,;]\s*(it'?s|it is|it was)\b",
+        "Binary contrast (\"The question isn't X, it's Y.\")",
+        'State Y directly: "Y matters more than X."',
     ),
     _r(
         "L2.negative_parallelism",
@@ -121,7 +142,8 @@ PATTERN_RULES: tuple[Rule, ...] = (
     ),
     _r(
         "L2.colon_reveal",
-        r"\b(the (detail|secret|key|catch|best part|kicker|twist|lesson|result|truth)):\s",
+        r"\b(the (detail|secret|key|catch|best part|kicker|twist|lesson|result|truth|irony|difference|upshot|"
+        r"punchline|part (that|nobody|everyone)[^:\n]{0,30}|thing (that|nobody|everyone)[^:\n]{0,30})):\s",
         "Colon drama reveal",
         "Write it as a normal sentence.",
     ),
@@ -141,7 +163,8 @@ PATTERN_RULES: tuple[Rule, ...] = (
     _r(
         "L2.metadiscourse",
         r"\b(that (last part|detail) matters|as you can see|the key (point|takeaway) (here )?is|in other words|this distinction matters|"
-        r"it'?s (important|worth) (to note|noting|mentioning))\b",
+        r"it'?s (important|worth) (to note|noting|mentioning)|here'?s why (this|that|it) matters|"
+        r"(this|that) matters more than (it sounds|you think|people realize))\b",
         "Authorial coaching",
         "Delete it.",
     ),
@@ -177,10 +200,23 @@ PATTERN_RULES: tuple[Rule, ...] = (
         "Write normal sentences.",
     ),
     _r(
+        "L2.dramatic_fragments",
+        r"[^.!?\n]{2,60}[.!] And [^.!?\n]{1,60}[.!] And [^.!?\n]{1,60}[.!]",
+        'Dramatic fragmentation ("X. And Y. And Z.")',
+        "Join them into one plain sentence.",
+    ),
+    _r(
         "L2.rhetorical_theatre",
-        r"\b(what if i told you|think about (it|that) for a (second|moment)|plot twist|spoiler( alert)?:|guess what\??)\b",
+        r"\b(what if i told you|think about (it|that) for a (second|moment)|think about it:|plot twist|spoiler( alert)?:|"
+        r"guess what\??)",
         "Rhetorical theatrics",
         "Just explain it.",
+    ),
+    _r(
+        "L2.self_answered",
+        r"\b(the (result|answer|reason|catch|twist|problem|fix|outcome|kicker)|why|how)\?\s+[A-Z][^?\n]{0,40}[.!]",
+        'Self-answered question ("The result? Chaos.")',
+        "Say the answer as a plain sentence.",
     ),
     _r(
         "L2.kicker",
@@ -195,6 +231,13 @@ PATTERN_RULES: tuple[Rule, ...] = (
         r"\b(in conclusion|in summary|to (sum|wrap) (it|things) up|the key takeaway|tl;?dr:?\s*$|bottom line:)\b",
         "Summary recap",
         "Cut the recap.",
+    ),
+    _r(
+        "L2.recap_opener",
+        r"\n\s*\n\s*(ultimately|overall|all in all|in the end),",
+        "Final paragraph that restates the post",
+        "End on the last concrete point instead.",
+        severity="warn",
     ),
     _r(
         "L2.emoji_bullets",
