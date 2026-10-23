@@ -122,7 +122,9 @@ PATTERN_RULES: tuple[Rule, ...] = (
     ),
     _r(
         "L2.binary_contrast",
-        r"\bthe (question|problem|issue|answer|point|bottleneck) (isn'?t|is not|was never) [^.\n]{2,60}[.,;]\s*(it'?s|it is|it was)\b",
+        r"\bthe (question|problem|issue|answer|point|bottleneck) (isn'?t|is not|was never) [^.\n]{2,60}[.,;]\s*(it'?s|it is|it was)\b|"
+        r"\b(isn'?t|is not|aren'?t|are not|wasn'?t) (really |just |only )?about [^.\n]{2,60}[.,;]\s*"
+        r"(it'?s|it is|they'?re|it was) (really |all )?about\b",
         "Binary contrast (\"The question isn't X, it's Y.\")",
         'State Y directly: "Y matters more than X."',
     ),

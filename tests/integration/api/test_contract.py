@@ -65,8 +65,9 @@ def test_v1_contract(case: schemathesis.Case) -> None:
     # The SSE endpoint streams until a run finishes; its contract is covered in test_v1.py.
     if case.path.endswith("/events"):
         return
-    # Calls the hosted LLM (unavailable offline); its 503 path is covered by the error-envelope tests.
-    if case.path.endswith("/story-bank/extract"):
+    # Call the hosted LLM (unavailable offline); their 503 paths are covered by the error-envelope and
+    # studio-edit tests in test_v1.py.
+    if case.path.endswith(("/story-bank/extract", "/gates/edit")):
         return
     # Stripe isn't configured in tests: checkout/portal answer 503 by design.
     if case.path in ("/api/v1/billing/checkout", "/api/v1/billing/portal"):

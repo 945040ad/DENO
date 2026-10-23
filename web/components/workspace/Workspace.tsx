@@ -21,6 +21,7 @@ import {
   type Run,
   type Report,
   type StreamEvent,
+  type StudioEdit,
 } from '@/lib/api';
 
 type Screen = 0 | 1 | 2 | 3;
@@ -960,17 +961,40 @@ function StudioScreen() {
   const [text, setText] = useState('');
   const [audit, setAudit] = useState<Audit | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [edit, setEdit] = useState<StudioEdit | null>(null);
+  const [editing, setEditing] = useState(false);
+  const community = platform === 'reddit' ? 'r/SaaS' : null;
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
   const sentences = text.split(/[.!?]+(\s|$)/).filter((s) => s && s.trim()).length;
 
   async function run(value = text) {
     if (!value.trim()) return;
     try {
-      setAudit(await api.audit(value.trim(), platform, platform === 'reddit' ? 'r/SaaS' : null));
+      setAudit(await api.audit(value.trim(), platform, community));
+      setEdit(null);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  async function fixForMe() {
+    setEditing(true);
+    try {
+      setEdit(await api.studioEdit(text.trim(), platform, community));
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setEditing(false);
+    }
+  }
+
+  function acceptEdit(e: StudioEdit) {
+    setText(e.edited);
+    // The edit was already re-checked by every gate: show that result without spending another audit.
+    setAudit({ passed: e.passed, layers: e.layers, autofixed: e.edited });
+    setEdit(null);
   }
 
   const blocking = audit ? blockingFindings(audit.layers) : [];
@@ -1046,6 +1070,43 @@ function StudioScreen() {
                 >
                   Apply safe mechanical fixes → rescore
                 </button>
+              )}
+              {(blocking.length > 0 || warnings.length > 0) && !edit && (
+                <button
+                  className="dv-btn ghost"
+                  style={{ marginTop: 10, width: '100%', boxShadow: 'none', color: 'var(--paper)', borderColor: 'rgba(250,248,243,.5)' }}
+                  disabled={editing}
+                  onClick={() => void fixForMe()}
+                >
+                  {editing ? 'Editing in your voice…' : 'Fix it for me → keeps your voice, lists every change'}
+                </button>
+              )}
+              {edit && (
+                <section aria-label="Suggested edit" style={{ marginTop: 20, border: '1px solid rgba(250,248,243,.3)', padding: 16 }}>
+                  <div className="dv-dark-label" style={{ marginBottom: 10 }}>
+                    SUGGESTED EDIT · {edit.passed ? 'PASSES EVERY GATE' : `${blockingFindings(edit.layers).length} ISSUES LEFT`}
+                  </div>
+                  <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: '0 0 14px' }}>{edit.edited}</p>
+                  <div className="dv-dark-label" style={{ marginBottom: 8 }}>WHAT CHANGED</div>
+                  <ul style={{ margin: '0 0 14px', paddingLeft: 18, lineHeight: 1.55 }}>
+                    {edit.changes.map((c, i) => (
+                      <li key={i}>{c}</li>
+                    ))}
+                  </ul>
+                  {!edit.passed && (
+                    <ul className="dv-dim" style={{ margin: '0 0 14px', paddingLeft: 18, lineHeight: 1.5 }}>
+                      {blockingFindings(edit.layers).map((f, i) => (
+                        <li key={`${f.rule_id}-${i}`}>
+                          {f.message}{f.quote ? `: “${f.quote}”` : ''} → {f.fix}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className="dv-btn lime sm" style={{ boxShadow: 'none' }} onClick={() => acceptEdit(edit)}>Use this version</button>
+                    <button className="dv-btn ghost sm" style={{ color: 'var(--paper)', borderColor: 'rgba(250,248,243,.5)' }} onClick={() => setEdit(null)}>Keep mine</button>
+                  </div>
+                </section>
               )}
             </>
           )}

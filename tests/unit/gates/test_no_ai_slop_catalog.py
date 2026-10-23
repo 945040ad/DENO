@@ -25,6 +25,7 @@ def rule_hits(text: str) -> dict[str, str]:
         ("Going forward, we will publish the changelog weekly.", "L2.filler_phrase", "warn"),
         ("The question isn't the model. It's the eval.", "L2.binary_contrast", "block"),
         ("The bottleneck was never the code, it was the review queue.", "L2.binary_contrast", "block"),
+        ("Onboarding isn't about features. It's about trust.", "L2.binary_contrast", "block"),
         ("I'll be honest, our first launch flopped.", "L2.opener.hook", "block"),
         ("The best part: it learns from every reply.", "L2.colon_reveal", "block"),
         ("The part nobody talks about: distribution.", "L2.colon_reveal", "block"),
@@ -51,6 +52,7 @@ def test_catches_the_skill_example(slop: str, rule: str, severity: str) -> None:
     [
         "In order to file the return I needed last year's receipts.",  # "in order to" is ordinary English, not listed
         "The question isn't settled yet, so we're testing both prices.",  # no "it's Y" reveal
+        "The bug isn't about the parser at all, so we rolled back the lexer.",
         "Honest feedback from three customers changed our roadmap.",
         "The result was fewer refunds after we doubled the price.",  # plain sentence, no Q/A theatre
         "We shipped it and then we fixed the bugs.",

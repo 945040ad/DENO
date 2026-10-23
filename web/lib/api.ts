@@ -185,6 +185,14 @@ export interface Audit {
   autofixed: string;
 }
 
+/** "Fix it for me": the post edited by the no-ai-slop rules, re-checked by every gate. */
+export interface StudioEdit {
+  edited: string;
+  changes: string[];
+  passed: boolean;
+  layers: GateLayer[];
+}
+
 export interface StreamEvent {
   type: string;
   node?: string;
@@ -324,6 +332,8 @@ export const api = {
   exportDraft: (draftId: string) => send<Draft>('POST', `/drafts/${enc(draftId)}/export`),
   audit: (text: string, platform: GatePlatform, community?: string | null) =>
     send<Audit>('POST', '/gates/audit', { text, platform, community: community ?? null }),
+  studioEdit: (text: string, platform: GatePlatform, community?: string | null) =>
+    send<StudioEdit>('POST', '/gates/edit', { text, platform, community: community ?? null }),
 };
 
 /**

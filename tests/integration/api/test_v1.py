@@ -397,6 +397,87 @@ async def test_me_export_and_delete(client: httpx.AsyncClient) -> None:
     assert (await client.get("/api/v1/projects", headers=headers)).json()["items"] == []
 
 
+# ---- studio edit ("fix it for me") ---------------------------------------------------
+
+SLOP_POST = (
+    "Here's the thing: onboarding isn't about features. It's about trust. "
+    "We utilize a checklist so every new user gets a win on day one."
+)
+
+
+def scripted_editor(monkeypatch: pytest.MonkeyPatch, answer: str) -> list[str]:
+    """Stands in for the LLM stack; records the post it was asked to edit."""
+    import deno_llm
+
+    seen: list[str] = []
+
+    class Runnable:
+        async def ainvoke(self, messages: list[Any], config: Any) -> Any:
+            seen.append(str(messages[-1].content))
+            return type("Msg", (), {"content": answer})()
+
+    stack = type(
+        "Stack", (), {"router": type("Router", (), {"chat": lambda self, role, temperature=0: Runnable()})()}
+    )()
+    monkeypatch.setattr(deno_llm, "build_stack", lambda settings, redis=None: stack)
+    return seen
+
+
+async def _audits_used(client: httpx.AsyncClient, headers: dict[str, str]) -> int:
+    usage = (await client.get("/api/v1/billing", headers=headers)).json()["usage"]
+    return next(u["used"] for u in usage if u["kind"] == "audit")
+
+
+async def test_fix_it_for_me_returns_the_edit_and_what_changed(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, headers = user_token()
+    seen = scripted_editor(
+        monkeypatch,
+        "EDITED:\nOnboarding is about trust. We use a checklist so every new user gets a win on day one.\n"
+        "WHAT CHANGED:\n- Cut the throat-clearing opener\n- Stated the binary contrast directly\n- utilize -> use\n",
+    )
+    res = await client.post("/api/v1/gates/edit", json={"text": SLOP_POST, "platform": "linkedin"}, headers=headers)
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["edited"].startswith("Onboarding is about trust.")
+    assert body["changes"] == [
+        "Cut the throat-clearing opener",
+        "Stated the binary contrast directly",
+        "utilize -> use",
+    ]
+    assert body["passed"] is True
+    assert "L2.binary_contrast" in seen[0], "the editor is told what the gates found"
+    assert await _audits_used(client, headers) == 1
+
+
+async def test_an_edit_that_invents_a_number_does_not_come_back_clean(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, headers = user_token()
+    scripted_editor(
+        monkeypatch,
+        "EDITED:\nOnboarding is about trust. Our checklist cut churn by 40% for new users.\nWHAT CHANGED:\n- Tightened\n",
+    )
+    res = await client.post("/api/v1/gates/edit", json={"text": SLOP_POST, "platform": "linkedin"}, headers=headers)
+
+    body = res.json()
+    assert body["passed"] is False
+    assert any(f["rule_id"] == "L1.unsourced_number" for g in body["layers"] for f in g["findings"])
+
+
+async def test_an_unusable_editor_answer_is_503_and_costs_nothing(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, headers = user_token()
+    scripted_editor(monkeypatch, "Sure! Here is a better version of your post.")
+    res = await client.post("/api/v1/gates/edit", json={"text": SLOP_POST, "platform": "linkedin"}, headers=headers)
+
+    assert res.status_code == 503
+    assert await _audits_used(client, headers) == 0
+
+
 # ---- limits -------------------------------------------------------------------------
 
 
