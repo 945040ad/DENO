@@ -3,10 +3,10 @@ when these pass."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from deno_gates.compliance import compliance
-from deno_gates.gate import GateContext, GateResult
+from deno_gates.gate import Finding, GateContext, GateResult
 from deno_gates.layers import density, patterns, scrub, structure
 from deno_gates.voice import VoiceProfile, voice
 
@@ -38,15 +38,35 @@ class GateReport:
         }
 
 
+# Typographic apostrophes (phone keyboards, LLM output) -> ASCII, one character for one, so every match
+# position still points into the original text. The rules spell apostrophes as "'", and without this
+# "It’s not X. It’s Y." or "I’ve talked to…" (the invented-anecdote check) passed every gate.
+_APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\uff07": "'"})
+
+
+def normalise(text: str) -> str:
+    """The text the rules match against; same length as ``text``."""
+    return text.translate(_APOSTROPHES)
+
+
 def run_gates(text: str, ctx: GateContext | None = None, *, profile: VoiceProfile | None = None) -> GateReport:
     ctx = ctx or GateContext()
-    return GateReport(
-        (
-            scrub(text, ctx),
-            patterns(text, ctx),
-            density(text, ctx),
-            structure(text, ctx),
-            voice(text, ctx, profile=profile),
-            compliance(text, ctx),
-        )
+    matched = normalise(text)
+    results = (
+        scrub(matched, ctx),
+        patterns(matched, ctx),
+        density(matched, ctx),
+        structure(matched, ctx),
+        voice(matched, ctx, profile=profile),
+        compliance(matched, ctx),
     )
+    if matched == text:
+        return GateReport(results)
+    return GateReport(tuple(replace(r, findings=tuple(_quote_original(f, text) for f in r.findings)) for r in results))
+
+
+def _quote_original(finding: Finding, text: str) -> Finding:
+    """Quote the founder's own characters back, not the normalised ones."""
+    if finding.end <= finding.start:
+        return finding
+    return replace(finding, quote=text[finding.start : finding.end].strip()[:160])

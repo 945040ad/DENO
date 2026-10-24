@@ -206,6 +206,7 @@ PATTERN_RULES: tuple[Rule, ...] = (
         r"[^.!?\n]{2,60}[.!] And [^.!?\n]{1,60}[.!] And [^.!?\n]{1,60}[.!]",
         'Dramatic fragmentation ("X. And Y. And Z.")',
         "Join them into one plain sentence.",
+        flags=0,  # the capital "And" starting each fragment is the tell
     ),
     _r(
         "L2.rhetorical_theatre",
@@ -216,9 +217,12 @@ PATTERN_RULES: tuple[Rule, ...] = (
     ),
     _r(
         "L2.self_answered",
-        r"\b(the (result|answer|reason|catch|twist|problem|fix|outcome|kicker)|why|how)\?\s+[A-Z][^?\n]{0,40}[.!]",
+        # Only as its own sentence: "Any idea why? It broke yesterday." is a real question.
+        r"(?:^|(?<=[.!?])\s+)(?:[Tt]he (?:result|answer|reason|catch|twist|problem|fix|outcome|kicker)|Why|How)\?"
+        r"\s+[A-Z][^?\n]{0,40}[.!]",
         'Self-answered question ("The result? Chaos.")',
         "Say the answer as a plain sentence.",
+        flags=re.MULTILINE,
     ),
     _r(
         "L2.kicker",
@@ -236,10 +240,12 @@ PATTERN_RULES: tuple[Rule, ...] = (
     ),
     _r(
         "L2.recap_opener",
-        r"\n\s*\n\s*(ultimately|overall|all in all|in the end),",
+        # The closing paragraph only ("In the end," is storytelling, not a recap).
+        r"\n\s*\n\s*(ultimately|overall|all in all),(?:(?!\n\s*\n).)*\Z",
         "Final paragraph that restates the post",
         "End on the last concrete point instead.",
         severity="warn",
+        flags=re.IGNORECASE | re.DOTALL,
     ),
     _r(
         "L2.emoji_bullets",
