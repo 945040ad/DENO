@@ -562,16 +562,31 @@ class StudioEditOut(BaseModel):
     layers: list[GateLayerOut] = Field(description="Gate results for the edited post")
 
 
-_EDITED = re.compile(r"EDITED:\s*\n(?P<post>.*?)\n\s*WHAT CHANGED:\s*\n?(?P<changes>.*)\Z", re.DOTALL)
+_EDITED_LABEL = re.compile(r"^[ \t*_#>]*edited[ \t*_]*:[ \t*_]*", re.IGNORECASE | re.MULTILINE)
+_CHANGED_LABEL = re.compile(r"^[ \t*_#>]*what changed[ \t*_]*:[ \t*_]*$", re.IGNORECASE | re.MULTILINE)
+_BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
+_FENCE = re.compile(r"^\s*```[a-z]*\s*$", re.IGNORECASE | re.MULTILINE)
 
 
 def parse_studio_edit(raw: str) -> tuple[str, list[str]]:
-    """``EDITED: … WHAT CHANGED: - …`` line protocol (guided JSON stalls on this model)."""
-    m = _EDITED.search(raw.strip())
-    if not m or not m.group("post").strip():
-        raise ValueError("the editor's answer had no edited post")
-    changes = [line.strip().lstrip("-*• ").strip() for line in m.group("changes").splitlines()]
-    return m.group("post").strip(), [c for c in changes if c][:20]
+    """``EDITED: … WHAT CHANGED: - …`` line protocol (guided JSON stalls on this model).
+
+    Lenient about how a model dresses the labels (bold, same-line post, code fences, a missing change
+    list), strict about there being an edit: an answer without the EDITED label is a refusal or a chat
+    reply, never something to put in front of the founder as their post.
+    """
+    raw = raw.replace("\r\n", "\n").replace("\r", "\n")  # "$" doesn't match before "\r"
+    label = _EDITED_LABEL.search(raw)
+    if label is None:
+        raise ValueError("the editor's answer had no EDITED section")
+    rest = raw[label.end() :]
+    changed = _CHANGED_LABEL.search(rest)
+    post_part, changes_part = (rest[: changed.start()], rest[changed.end() :]) if changed else (rest, "")
+    post = _FENCE.sub("", post_part).strip()
+    if not post:
+        raise ValueError("the editor's answer had an empty edit")
+    changes = [_BULLET.sub("", line).strip() for line in changes_part.splitlines()]
+    return post, [c for c in changes if c][:20]
 
 
 @router.post("/gates/edit")
